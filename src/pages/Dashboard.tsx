@@ -25,6 +25,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import * as XLSX from 'xlsx';
+import { toast } from 'sonner';
 
 const weeklyData = [
   { day: "Mon", reps: 45, calories: 120 },
@@ -158,17 +162,11 @@ const Dashboard = () => {
       const wsWeekly = XLSX.utils.json_to_sheet(weeklyData);
       XLSX.utils.book_append_sheet(wb, wsWeekly, "Weekly Activity");
 
-      const wsTimeline = XLSX.utils.json_to_sheet(timelineData.map(t => ({ Week: t.week, 'Pain/10': t.pain, 'Form %': t.form })));
-      XLSX.utils.book_append_sheet(wb, wsTimeline, "Recovery Timeline");
-
-      const wsExercises = XLSX.utils.json_to_sheet(todayExercises.map(e => ({ Exercise: e.name, Type: e.type, Duration: e.duration, Status: e.status })));
+      const wsExercises = XLSX.utils.json_to_sheet(exercises.map(e => ({ Exercise: e.name, Muscle: e.muscle, Duration: e.duration, Status: e.completed ? 'Completed' : 'Pending' })));
       XLSX.utils.book_append_sheet(wb, wsExercises, "Today Exercises");
 
-      const wsMetrics = XLSX.utils.json_to_sheet(metrics.map(m => ({ Metric: m.label, Value: m.value, Trend: m.trend })));
+      const wsMetrics = XLSX.utils.json_to_sheet(metrics.map(m => ({ Metric: m.label, Value: m.value, Trend: m.trend, Insight: m.insight })));
       XLSX.utils.book_append_sheet(wb, wsMetrics, "Core Metrics");
-
-      const wsInsights = XLSX.utils.json_to_sheet(insights.map(i => ({ Insight: i.text, Status: i.type, Risk: i.risk })));
-      XLSX.utils.book_append_sheet(wb, wsInsights, "AI Insights");
 
       XLSX.writeFile(wb, "Dashboard_Report.xlsx");
       toast.success("Excel Downloaded successfully");
@@ -180,6 +178,7 @@ const Dashboard = () => {
 
   return (
     <motion.div
+      id="dashboard-container"
       initial="hidden"
       animate="show"
       variants={container}
@@ -352,11 +351,11 @@ const Dashboard = () => {
                     <motion.div key={progressPercent} initial={{ width: 0 }} animate={{ width: `${progressPercent}%` }} transition={{ duration: 1.5, ease: "easeOut" }} className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 shadow-glow" />
                   </div>
                   <p className="mt-3 text-[8px] font-bold text-white/20 text-center uppercase tracking-widest">Next: Thoracic Flexibility Alpha</p>
-               </div>
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
+    </motion.div>
 
       {/* 🗓️ CALENDAR SECTION */}
       <div className="lg:col-span-12 bg-white/60 backdrop-blur-3xl rounded-[2.5rem] p-8 border border-slate-200/50 shadow-elevated overflow-hidden relative group">
