@@ -1,0 +1,3 @@
+C:\Users\Himesh\Downloads\E-Commerce-WebPage-main\E-Commerce-WebPage-main\ecommerce-project\prism-health-hub\dist\physio_trainer.glb
+C:\Users\Himesh\Downloads\E-Commerce-WebPage-main\E-Commerce-WebPage-main\ecommerce-project\prism-health-hub\dist\physio_trainer.glb\stretch.glb
+C:\Users\Himesh\Downloads\E-Commerce-WebPage-main\E-Commerce-WebPage-main\ecommerce-project\prism-health-hub\public\meshcharacters\idle.glb

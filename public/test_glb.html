@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GLB Node Inspector</title>
+</head>
+<body>
+<pre id="output">Loading GLB hierarchy...</pre>
+
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+</script>
+<script type="module">
+  import * as THREE from 'three';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+  const loader = new GLTFLoader();
+  // Using relative path accessible via dev server
+  const url = '/physio_trainer.glb/stretch.glb'; 
+  
+  const output = document.getElementById('output');
+
+  loader.load(url, (gltf) => {
+    let result = 'GLB HIERARCHY:\n';
+    gltf.scene.traverse((child) => {
+      // Print type and name for ALL nodes to understand rigging bounds
+      result += `${child.type}: "${child.name}"\n`;
+      if (child.isMesh) {
+         if (Array.isArray(child.material)) {
+             child.material.forEach((mat, i) => {
+                 result += `  -> Material[${i}]: "${mat.name}"\n`;
+             });
+         } else if (child.material) {
+             result += `  -> Material: "${child.material.name}"\n`;
+         }
+      }
+    });
+    output.innerText = result;
+  }, undefined, (error) => {
+    output.innerText = 'Error loading GLB: ' + error.message;
+  });
+</script>
+</body>
+</html>

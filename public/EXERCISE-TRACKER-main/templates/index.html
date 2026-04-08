@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exercise Tracker — AI Powered</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <header class="header">
+      <h1>Exercise Tracker</h1>
+      <p class="subtitle">AI-powered form analysis using 33-point body skeleton</p>
+    </header>
+
+    <!-- Tip Cards -->
+    <div class="tips-row">
+      <div class="tip-card">
+        <div class="tip-icon">👁</div>
+        <h3>Full Body Visible</h3>
+        <p>Keep your full body in frame at all times</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">📏</div>
+        <h3>2-3ft Distance</h3>
+        <p>Stand 2-3 ft from the camera for best tracking</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">💡</div>
+        <h3>Good Lighting</h3>
+        <p>Ensure your room is well-lit for accurate tracking</p>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">👕</div>
+        <h3>Fitted Clothing</h3>
+        <p>Wear fitted clothes for accurate joint detection</p>
+      </div>
+    </div>
+
+    <!-- Exercise Selector — tabbed by category -->
+    <div class="category-tabs">
+      <button class="cat-tab active" data-cat="strength">💪 Strength</button>
+      <button class="cat-tab" data-cat="neck">🔄 Neck</button>
+      <button class="cat-tab" data-cat="shoulder">🦾 Shoulder</button>
+      <button class="cat-tab" data-cat="yoga">🧘 Yoga</button>
+    </div>
+
+    <!-- Strength -->
+    <div class="exercise-selector" id="cat-strength">
+      <button class="ex-btn active" data-ex="squats">
+        <span class="ex-icon">🦵</span><span class="ex-label">Squats</span>
+      </button>
+      <button class="ex-btn" data-ex="bicep_curls">
+        <span class="ex-icon">💪</span><span class="ex-label">Bicep Curls</span>
+      </button>
+      <button class="ex-btn" data-ex="pushups">
+        <span class="ex-icon">🤸</span><span class="ex-label">Push-ups</span>
+      </button>
+    </div>
+
+    <!-- Neck -->
+    <div class="exercise-selector hidden" id="cat-neck">
+      <button class="ex-btn" data-ex="neck_rotation">
+        <span class="ex-icon">🔄</span><span class="ex-label">Neck Rotation</span>
+      </button>
+      <button class="ex-btn" data-ex="neck_tilt">
+        <span class="ex-icon">↔️</span><span class="ex-label">Neck Tilt</span>
+      </button>
+    </div>
+
+    <!-- Shoulder -->
+    <div class="exercise-selector hidden" id="cat-shoulder">
+      <button class="ex-btn" data-ex="shoulder_rolls">
+        <span class="ex-icon">🔃</span><span class="ex-label">Shoulder Rolls</span>
+      </button>
+      <button class="ex-btn" data-ex="shoulder_press">
+        <span class="ex-icon">⬆️</span><span class="ex-label">Shoulder Press</span>
+      </button>
+      <button class="ex-btn" data-ex="lateral_raises">
+        <span class="ex-icon">↕️</span><span class="ex-label">Lateral Raises</span>
+      </button>
+    </div>
+
+    <!-- Yoga -->
+    <div class="exercise-selector hidden" id="cat-yoga">
+      <button class="ex-btn yoga-btn" data-ex="mountain_pose">
+        <span class="ex-icon">🏔</span><span class="ex-label">Tadasana</span>
+      </button>
+      <button class="ex-btn yoga-btn" data-ex="warrior_i">
+        <span class="ex-icon">⚔️</span><span class="ex-label">Virabhadrasana I</span>
+      </button>
+      <button class="ex-btn yoga-btn" data-ex="warrior_ii">
+        <span class="ex-icon">🗡️</span><span class="ex-label">Virabhadrasana II</span>
+      </button>
+      <button class="ex-btn yoga-btn" data-ex="tree_pose">
+        <span class="ex-icon">🌳</span><span class="ex-label">Vrikshasana</span>
+      </button>
+      <button class="ex-btn yoga-btn" data-ex="chair_pose">
+        <span class="ex-icon">🪑</span><span class="ex-label">Utkatasana</span>
+      </button>
+      <button class="ex-btn yoga-btn" data-ex="triangle_pose">
+        <span class="ex-icon">📐</span><span class="ex-label">Trikonasana</span>
+      </button>
+    </div>
+
+    <!-- Yoga badge -->
+    <div class="yoga-mode-badge hidden" id="yoga-badge">
+      🧘 Yoga Mode — Hold Timer Active
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+
+      <!-- Camera -->
+      <div class="camera-area" id="camera-area">
+        <div class="camera-body">
+          <div class="camera-placeholder" id="placeholder">
+            <div class="ph-icon">📷</div>
+            <p class="ph-title">Click Start Camera to begin</p>
+            <p class="ph-sub">AI will track your exercise form in real-time</p>
+          </div>
+          <img id="video-feed" src="" alt="Camera" style="display:none;width:100%;height:100%;object-fit:cover">
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-start-cam">📷 Start Camera</button>
+          <button class="btn btn-green hidden" id="btn-start-ex">▶ Start</button>
+          <button class="btn btn-yellow hidden" id="btn-stop-ex">⏸ Stop</button>
+          <button class="btn btn-secondary hidden" id="btn-reset">↺ Reset</button>
+          <button class="btn btn-danger hidden" id="btn-stop-cam">■ Stop Camera</button>
+          <button class="btn btn-secondary hidden" id="btn-fullscreen" style="margin-left:auto">⛶ Fullscreen</button>
+        </div>
+      </div>
+
+      <!-- Stats Panel -->
+      <div class="stats-panel">
+
+        <!-- Rep Counter / Yoga Timer Card -->
+        <div class="stat-card" id="rep-card">
+          <div class="stat-card-header">
+            <span id="ex-name-label">Squats</span>
+            <span class="stat-badge" id="state-badge">Ready</span>
+          </div>
+
+          <!-- Physical exercise reps -->
+          <div id="rep-display" class="rep-display">
+            <span class="rep-number" id="rep-count">0</span>
+            <span class="rep-label">REPS</span>
+          </div>
+
+          <!-- Yoga timer display (hidden by default) -->
+          <div id="yoga-display" class="yoga-display hidden">
+            <div class="yoga-timer-ring">
+              <svg viewBox="0 0 100 100" class="timer-svg">
+                <circle cx="50" cy="50" r="42" class="timer-track" />
+                <circle cx="50" cy="50" r="42" class="timer-fill" id="timer-arc" stroke-dasharray="264"
+                  stroke-dashoffset="264" />
+              </svg>
+              <div class="yoga-timer-center">
+                <span class="yoga-seconds" id="yoga-seconds">0</span>
+                <span class="yoga-sec-label">sec</span>
+              </div>
+            </div>
+            <div class="yoga-meta">
+              <div class="yoga-stat">
+                <span class="yoga-stat-label">Target</span>
+                <span class="yoga-stat-val" id="yoga-target">30s</span>
+              </div>
+              <div class="yoga-stat">
+                <span class="yoga-stat-label">Sets Done</span>
+                <span class="yoga-stat-val" id="yoga-sets">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-bar-wrap">
+            <div class="form-bar-label">
+              <span>Form Quality</span>
+              <span id="form-pct">100%</span>
+            </div>
+            <div class="form-track">
+              <div class="form-fill" id="form-fill" style="width:100%"></div>
+            </div>
+          </div>
+          <div class="feedback-box" id="feedback-box">
+            <span id="feedback-text">Select an exercise and click Start</span>
+          </div>
+        </div>
+
+        <!-- Metrics Card -->
+        <div class="stat-card" id="metrics-card">
+          <h3>Live Metrics</h3>
+          <div class="metric-grid">
+            <div class="metric-item">
+              <span class="metric-label" id="m-angle-label">Joint Angle</span>
+              <span class="metric-value" id="m-angle">—</span>
+            </div>
+            <div class="metric-item" id="m-speed-item">
+              <span class="metric-label">Rep Speed</span>
+              <span class="metric-value" id="m-speed">—</span>
+            </div>
+            <div class="metric-item" id="m-avgtime-item">
+              <span class="metric-label" id="m-avgtime-label">Avg Rep Time</span>
+              <span class="metric-value" id="m-avgtime">—</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label" id="m-status-label">Status</span>
+              <span class="metric-value" id="m-status">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exercise Guide Card -->
+        <div class="stat-card" id="guide-card">
+          <h3>How To</h3>
+          <div id="guide-content"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+
+</html>

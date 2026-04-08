@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Posture Detection - AI Posture Analyzer</title>
+    <meta name="description" content="Use your webcam to analyze your posture in real-time with AI-powered detection">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- ── Header ─────────────────────────────────────────────── -->
+        <header class="header">
+            <h1>Posture Detection</h1>
+            <p class="subtitle">Use your webcam to analyze your posture in real-time</p>
+        </header>
+
+        <!-- ── Tip Cards ──────────────────────────────────────────── -->
+        <div class="tips-row">
+            <div class="tip-card">
+                <div class="tip-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4f8cff" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                    </svg>
+                </div>
+                <h3>Face Camera</h3>
+                <p>Position yourself facing the camera directly for best results</p>
+            </div>
+            <div class="tip-card">
+                <div class="tip-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4f8cff" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2a7 7 0 0 1 7 7v4a7 7 0 0 1-14 0V9a7 7 0 0 1 7-7z" />
+                        <path d="M12 18v4" />
+                    </svg>
+                </div>
+                <h3>Good Lighting</h3>
+                <p>Ensure your room is well-lit for accurate detection</p>
+            </div>
+            <div class="tip-card">
+                <div class="tip-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4f8cff" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                        <path d="M2 17l10 5 10-5" />
+                        <path d="M2 12l10 5 10-5" />
+                    </svg>
+                </div>
+                <h3>Full Body</h3>
+                <p>Try to keep your full body visible in the frame</p>
+            </div>
+            <div class="tip-card">
+                <div class="tip-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4f8cff" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                </div>
+                <h3>2-3ft Distance</h3>
+                <p>Maintain 2-3 feet distance from your camera</p>
+            </div>
+        </div>
+
+        <!-- ── Main Content ────────────────────────────────────────── -->
+        <div class="main-content">
+
+            <!-- ── Camera Area ────────────────────────────────────── -->
+            <!-- id="camera-area" needed for Fullscreen API           -->
+            <div class="camera-area" id="camera-area">
+
+                <!-- Idle placeholder (shown before camera starts) -->
+                <div id="camera-placeholder" class="camera-placeholder">
+                    <div class="placeholder-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.5"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                            <circle cx="12" cy="13" r="4" />
+                        </svg>
+                    </div>
+                    <p class="placeholder-title">Click Start Camera to enable your webcam</p>
+                    <p class="placeholder-subtitle">Full-body posture analysis across 4 views</p>
+                </div>
+
+                <!-- Live MJPEG stream -->
+                <div class="camera-body">
+                    <img id="video-feed" class="video-feed hidden" src="" alt="Camera Feed">
+                </div>
+
+                <!-- Buttons -->
+                <div class="btn-row">
+
+                    <button id="btn-start-camera" class="action-btn btn-primary">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                            <circle cx="12" cy="13" r="4" />
+                        </svg>
+                        Start Camera
+                    </button>
+
+                    <button id="btn-start-analysis" class="action-btn btn-green hidden">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                        </svg>
+                        Start Analysis
+                    </button>
+
+                    <button id="btn-reset" class="action-btn btn-secondary hidden">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="23 4 23 10 17 10" />
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                        </svg>
+                        Scan Again
+                    </button>
+
+                    <button id="btn-stop-camera" class="action-btn btn-danger hidden">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                        </svg>
+                        Stop Camera
+                    </button>
+
+                    <!-- Wake word status + live transcript -->
+                    <div style="display:flex;flex-direction:column;gap:3px">
+                        <div id="wake-badge" style="
+                            display:inline-flex;align-items:center;gap:6px;
+                            padding:5px 12px;border-radius:20px;
+                            border:1px solid #374151;color:#4b5563;
+                            font-size:.70rem;font-weight:500;font-family:Inter,sans-serif;
+                            transition:all .3s;white-space:nowrap;
+                        ">🎤 Say: "Hey Prism, Start Analysis"</div>
+                        <div id="wake-transcript" style="
+                            font-size:.60rem;color:#4b5563;padding-left:6px;
+                            min-height:12px;font-family:monospace;transition:color .2s;
+                        "></div>
+                    </div>
+
+                    <!-- Fullscreen toggle — pushed to the right -->
+                    <button id="btn-fullscreen" class="action-btn btn-secondary hidden" style="margin-left:auto">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                        </svg>
+                        Fullscreen
+                    </button>
+
+                </div>
+            </div><!-- .camera-area -->
+
+            <!-- ── Analysis Panel ─────────────────────────────────── -->
+            <div class="analysis-panel">
+
+                <!-- IDLE -->
+                <div id="panel-idle" class="analysis-card">
+                    <h2>Posture Analysis</h2>
+                    <p class="analysis-status">Start your camera to begin posture analysis</p>
+                    <div style="margin-top:16px">
+                        <h3 class="issues-title">Common Issues</h3>
+                        <div class="issue-list">
+                            <div class="issue-item">
+                                <div class="issue-dot" style="background:#ef4444"></div>
+                                <div class="issue-info">
+                                    <h4>Forward Head</h4>
+                                    <p>Tuck chin and align ears over shoulders</p>
+                                </div>
+                            </div>
+                            <div class="issue-item">
+                                <div class="issue-dot" style="background:#f59e0b"></div>
+                                <div class="issue-info">
+                                    <h4>Rounded Shoulders</h4>
+                                    <p>Squeeze shoulder blades together</p>
+                                </div>
+                            </div>
+                            <div class="issue-item">
+                                <div class="issue-dot" style="background:#22c55e"></div>
+                                <div class="issue-info">
+                                    <h4>Anterior Pelvic Tilt</h4>
+                                    <p>Engage core and tuck pelvis slightly</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CAMERA READY -->
+                <div id="panel-ready" class="analysis-card hidden">
+                    <h2>Posture Analysis</h2>
+                    <p class="analysis-status">Camera ready! Click <strong>Start Analysis</strong> to begin the 4-view
+                        scan.</p>
+                    <p style="font-size:.70rem;color:#4b5563;margin-top:4px">Each view: 3 s countdown + 5 s capture</p>
+
+                    <div class="view-guide">
+                        <div class="vg-item" style="border-color:#60a5fa44">
+                            <span class="vg-num" style="color:#60a5fa">① FRONT</span>
+                            <span class="vg-desc">Face the camera</span>
+                        </div>
+                        <div class="vg-item" style="border-color:#a78bfa44">
+                            <span class="vg-num" style="color:#a78bfa">② RIGHT</span>
+                            <span class="vg-desc">Right side to cam</span>
+                        </div>
+                        <div class="vg-item" style="border-color:#34d39944">
+                            <span class="vg-num" style="color:#34d399">③ BACK</span>
+                            <span class="vg-desc">Turn your back</span>
+                        </div>
+                        <div class="vg-item" style="border-color:#fb923c44">
+                            <span class="vg-num" style="color:#fb923c">④ LEFT</span>
+                            <span class="vg-desc">Left side to cam</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:16px">
+                        <h3 class="issues-title">Common Issues</h3>
+                        <div class="issue-list">
+                            <div class="issue-item">
+                                <div class="issue-dot" style="background:#ef4444"></div>
+                                <div class="issue-info">
+                                    <h4>Forward Head</h4>
+                                    <p>Tuck chin and align ears over shoulders</p>
+                                </div>
+                            </div>
+                            <div class="issue-item">
+                                <div class="issue-dot" style="background:#f59e0b"></div>
+                                <div class="issue-info">
+                                    <h4>Rounded Shoulders</h4>
+                                    <p>Squeeze shoulder blades together</p>
+                                </div>
+                            </div>
+                            <div class="issue-item">
+                                <div class="issue-dot" style="background:#22c55e"></div>
+                                <div class="issue-info">
+                                    <h4>Anterior Pelvic Tilt</h4>
+                                    <p>Engage core and tuck pelvis slightly</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SCANNING -->
+                <div id="panel-scanning" class="analysis-card hidden">
+                    <h2>Posture Analysis</h2>
+
+                    <div id="scan-instr" class="scan-instr">Preparing...</div>
+
+                    <!-- Countdown ring (prep phase) -->
+                    <div id="prep-cd" class="cd-wrap hidden">
+                        <div class="cd-ring" id="cd-ring">
+                            <span id="cd-num">3</span>
+                        </div>
+                    </div>
+
+                    <!-- Capture progress bar (capturing phase) -->
+                    <div id="cap-wrap" class="cap-wrap hidden">
+                        <div class="cap-track">
+                            <div id="cap-fill" class="cap-fill"></div>
+                        </div>
+                        <span id="cap-label" class="cap-lbl">5s</span>
+                    </div>
+
+                    <!-- 4-view status dots -->
+                    <div id="scan-dots" class="dot-rows"></div>
+                </div>
+
+                <!-- RESULTS -->
+                <div id="panel-results" class="analysis-card hidden">
+                    <h2>Posture Analysis</h2>
+                    <div id="result-score"></div>
+                    <div id="result-metrics"></div>
+                    <div id="result-findings"></div>
+                </div>
+
+            </div><!-- .analysis-panel -->
+        </div><!-- .main-content -->
+    </div><!-- .container -->
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

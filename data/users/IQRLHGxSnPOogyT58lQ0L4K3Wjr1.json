@@ -1,0 +1,13 @@
+{
+  "user_id": "IQRLHGxSnPOogyT58lQ0L4K3Wjr1",
+  "name": "Tester Jet",
+  "email": "tester_jet@test.com",
+  "age": 30,
+  "weight": 75,
+  "height": 180,
+  "gender": "male",
+  "role": "patient",
+  "credentials": "",
+  "specialization": "",
+  "updated_at": "2026-03-24T17:50:14.152Z"
+}

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- TODO: Set the document title to the name of your application -->
+    <title>Prism | AI-Powered Physiotherapy Platform</title>
+    <meta name="description" content="Prism combines AI posture detection, 3D exercise visualization, and smart tracking for personalized physiotherapy." />
+    <meta name="author" content="Analytics Private Limited" />
+
+    <meta property="og:title" content="Prism | AI-Powered Physiotherapy" />
+    <meta property="og:description" content="Your recovery, reimagined. AI-powered physiotherapy platform." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@Lovable" />
+    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <style>
+      .goog-te-banner-frame.skiptranslate {
+        display: none !important;
+      }
+      body {
+        top: 0px !important;
+      }
+      .goog-tooltip {
+        display: none !important;
+      }
+      .goog-tooltip:hover {
+        display: none !important;
+      }
+      .goog-text-highlight {
+        background-color: transparent !important;
+        box-shadow: none !important;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Google Translate Container (Hidden, controlled via custom buttons) -->
+    <div id="google_translate_element" style="display: none;"></div>
+
+    <script type="text/javascript">
+      function googleTranslateElementInit() {
+        new google.translate.TranslateElement({
+          pageLanguage: 'en',
+          includedLanguages: 'en,mr',
+          autoDisplay: false
+        }, 'google_translate_element');
+      }
+
+      window.translateToMarathi = function() {
+        const select = document.querySelector('.goog-te-combo');
+        if (!select) {
+          alert("Translation services are loading... Please try again in a few seconds.");
+          return;
+        }
+        
+        // Toggle condition or hardcode 'mr' set
+        if (select.value === 'mr') {
+          select.value = 'en'; // revert
+        } else {
+          select.value = 'mr';
+        }
+        select.dispatchEvent(new Event('change'));
+      }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
