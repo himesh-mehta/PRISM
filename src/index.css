@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -43,14 +43,14 @@
     --radius: 0.75rem;
 
     /* Custom Prism tokens */
-    --prism-navy: 215 55% 14%;
+    --prism-navy: 222 47% 11%; /* #0B1220 approx */
     --prism-blue: 217 91% 60%;
     --prism-indigo: 239 84% 67%;
     --prism-sky: 199 85% 50%;
     --prism-ice: 200 60% 94%;
     --prism-glow: 217 90% 65%;
 
-    --gradient-hero: linear-gradient(135deg, hsl(215 55% 14%) 0%, hsl(217 91% 30%) 50%, hsl(199 85% 40%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(217 91% 30%) 50%, hsl(199 85% 40%) 100%);
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
     --gradient-accent: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(239 84% 67%) 100%);
     --gradient-glass: linear-gradient(135deg, hsla(0, 0%, 100%, 0.8) 0%, hsla(210, 40%, 98%, 0.6) 100%);
@@ -73,18 +73,18 @@
   }
 
   .dark {
-    --background: 215 60% 4%;
-    --foreground: 210 40% 95%;
-    --card: 215 45% 10%;
-    --card-foreground: 210 40% 95%;
-    --popover: 215 45% 10%;
-    --popover-foreground: 210 40% 95%;
+    --background: 222 47% 9%; /* #0B1220 */
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
     --primary: 217 91% 65%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 215 35% 16%;
-    --secondary-foreground: 210 40% 90%;
-    --muted: 215 35% 16%;
-    --muted-foreground: 215 20% 55%;
+    --secondary: 222 47% 14%;
+    --secondary-foreground: 210 40% 95%;
+    --muted: 222 47% 14%;
+    --muted-foreground: 215 20% 65%;
     --accent: 239 84% 72%;
     --accent-foreground: 0 0% 100%;
     --success: 160 84% 45%;
@@ -93,22 +93,22 @@
     --warning-foreground: 0 0% 100%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
-    --border: 215 30% 18%;
-    --input: 215 30% 18%;
+    --border: 222 47% 18%;
+    --input: 222 47% 18%;
     --ring: 217 91% 65%;
-    --gradient-glass: linear-gradient(135deg, hsla(215, 45%, 14%, 0.8) 0%, hsla(215, 45%, 10%, 0.6) 100%);
-    --gradient-metric: linear-gradient(145deg, hsl(215 45% 12%) 0%, hsl(215 40% 14%) 100%);
+    --gradient-glass: linear-gradient(135deg, hsla(222, 47%, 14%, 0.8) 0%, hsla(222, 47%, 11%, 0.6) 100%);
+    --gradient-metric: linear-gradient(145deg, hsl(222 47% 12%) 0%, hsl(222 40% 14%) 100%);
     --shadow-card: 0 1px 3px hsla(0, 0%, 0%, 0.1), 0 4px 24px -4px hsla(0, 0%, 0%, 0.15);
     --shadow-elevated: 0 8px 32px -8px hsla(0, 0%, 0%, 0.25);
     --shadow-glass: 0 8px 32px -4px hsla(0, 0%, 0%, 0.15), inset 0 1px 0 hsla(0, 0%, 100%, 0.05);
     --shadow-anti-gravity: 0 25px 50px -12px rgba(59, 130, 246, 0.2), 0 15px 30px -15px rgba(139, 92, 246, 0.2);
-    --sidebar-background: 215 55% 8%;
-    --sidebar-foreground: 210 40% 90%;
+    --sidebar-background: 222 47% 10%;
+    --sidebar-foreground: 210 40% 95%;
     --sidebar-primary: 217 91% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 35% 16%;
-    --sidebar-accent-foreground: 210 40% 90%;
-    --sidebar-border: 215 30% 18%;
+    --sidebar-accent: 222 47% 14%;
+    --sidebar-accent-foreground: 210 40% 95%;
+    --sidebar-border: 222 47% 18%;
     --sidebar-ring: 217 91% 65%;
   }
 }
@@ -122,19 +122,16 @@
     scroll-behavior: smooth;
     overflow-x: hidden;
     -ms-overflow-style: none;
-    /* IE and Edge */
     scrollbar-width: none;
-    /* Firefox */
   }
 
   html::-webkit-scrollbar {
     display: none;
-    /* Chrome, Safari, Opera */
   }
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: 'Manrope', sans-serif;
     overflow-x: hidden;
     width: 100%;
     position: relative;
@@ -152,7 +149,7 @@
   h4,
   h5,
   h6 {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Sora', sans-serif;
   }
 }
 
