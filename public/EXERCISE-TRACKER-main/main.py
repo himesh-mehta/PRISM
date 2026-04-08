@@ -26,7 +26,7 @@ app = Flask(__name__)
 # ═══════════════════════════════════════════════════════════════
 import os
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pose_landmarker_heavy.task')
-TARGET_FPS     = 60
+TARGET_FPS     = 24
 FRAME_INTERVAL = 1.0 / TARGET_FPS
 ZOOM_SCALE     = 0.78
 
@@ -151,8 +151,8 @@ def draw_skeleton(frame, lms, accent):
         if a >= len(pts) or b >= len(pts): continue
         v = min(pts[a][2], pts[b][2])
         if v < 0.3: continue
-        cv2.line(glow, pts[a][:2], pts[b][:2], gcol[grp], 14, cv2.LINE_AA)
-    glow = cv2.GaussianBlur(glow, (21,21), 0)
+    cv2.line(glow, pts[a][:2], pts[b][:2], gcol[grp], 14, cv2.LINE_AA)
+    glow = cv2.GaussianBlur(glow, (11,11), 0) # Reduced from 21x21 for speed
     cv2.addWeighted(frame, 1.0, glow, 0.28, 0, frame)
 
     for a, b, grp in EDGES:
@@ -191,13 +191,13 @@ def draw_angle_arc(frame, joint_px, angle, color):
 # ═══════════════════════════════════════════════════════════════
 #  SPEED CLASSIFIER
 # ═══════════════════════════════════════════════════════════════
-def classify_speed(seconds_per_phase):
-    if seconds_per_phase < SPEED_TOO_FAST:
+def classify_speed(seconds, fast_t=0.8, slow_t=5.0):
+    if seconds < fast_t:
         return 'too_fast', 'Too Fast — slow down!'
-    elif seconds_per_phase > SPEED_TOO_SLOW:
+    elif seconds > slow_t:
         return 'too_slow', 'Too Slow — keep moving'
     else:
-        return 'good', 'Good Speed'
+        return 'good', 'Good Tempo!'
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -217,14 +217,36 @@ class ExerciseBase:
         self.speed_msg    = ''
         self.speed_status = 'good'
         self.form_score   = 100
-        self.rep_times    = collections.deque(maxlen=10)
+        self.rep_times    = collections.deque(maxlen=4) # Smaller window for responsiveness
         self.active       = True
         self.session_start= time.time()
         self.is_yoga      = False
+        
+        # Default thresholds (strength)
+        self.fast_t = 1.0
+        self.slow_t = 4.5
+        
+        # Stability fields
+        self.last_rep_time = 0
+        self.smoothing     = 0.50 # Increased for higher jitter tolerance
 
     def avg_rep_time(self):
         if not self.rep_times: return 0.0
         return sum(self.rep_times)/len(self.rep_times)
+
+    def smooth_angle(self, new_val):
+        """Apply EMA smoothing to angle to reduce jitter."""
+        if self.angle == 0.0 or self.angle == "—": self.angle = new_val
+        else: self.angle = (self.smoothing * new_val) + ((1 - self.smoothing) * self.angle)
+        return self.angle
+
+    def can_count_rep(self, min_gap=0.8):
+        """Rep debouncing: ensures reps aren't counted too close together."""
+        now = time.time()
+        if now - self.last_rep_time > min_gap:
+            self.last_rep_time = now
+            return True
+        return False
 
     def process(self, lms, w, h):
         raise NotImplementedError
@@ -300,16 +322,21 @@ class SquatTracker(ExerciseBase):
 
             l_ang = angle3(l_hip, l_kn, l_ank)
             r_ang = angle3(r_hip, r_kn, r_ank)
-            self.angle = (l_ang + r_ang) / 2
+            raw_avg = (l_ang + r_ang) / 2
+            self.smooth_angle(raw_avg)
 
-            if self.phase == 'up' and self.angle < 95:
+            if self.phase == 'up' and self.angle < 90: # Tighter DOWN threshold
                 self.phase = 'down'; self.phase_start = time.time()
-            elif self.phase == 'down' and self.angle > 160:
-                elapsed = time.time() - self.phase_start
-                self.rep_times.append(elapsed)
-                s, m = classify_speed(elapsed)
-                self.speed_status = s; self.speed_msg = m
-                self.reps += 1; self.phase = 'up'
+            elif self.phase == 'down' and self.angle > 155: # Tighter UP threshold
+                if self.can_count_rep(1.2): 
+                    elapsed = time.time() - self.phase_start
+                    self.rep_times.append(elapsed)
+                    s, m = classify_speed(elapsed, 1.2, 5.0)
+                    self.speed_status = s; self.speed_msg = m
+                    self.reps += 1
+                    self.phase = 'up'
+                elif self.angle > 165: # Safety reset if they stay UP but debounce failed
+                    self.phase = 'up'
 
             issues = []
             l_cave = abs(lms[LM['L_KNEE']].x - lms[LM['L_ANK']].x) * 100
@@ -360,16 +387,21 @@ class BicepCurlTracker(ExerciseBase):
 
             l_ang = angle3(l_sh, l_el, l_wr)
             r_ang = angle3(r_sh, r_el, r_wr)
-            self.angle = (l_ang + r_ang) / 2
+            raw_avg = (l_ang + r_ang) / 2
+            self.smooth_angle(raw_avg)
 
-            if self.phase == 'down' and self.angle < 50:
+            if self.phase == 'down' and self.angle < 45:
                 self.phase = 'up'; self.phase_start = time.time()
-            elif self.phase == 'up' and self.angle > 150:
-                elapsed = time.time() - self.phase_start
-                self.rep_times.append(elapsed)
-                s, m = classify_speed(elapsed)
-                self.speed_status = s; self.speed_msg = m
-                self.reps += 1; self.phase = 'down'
+            elif self.phase == 'up' and self.angle > 145:
+                if self.can_count_rep(1.2):
+                    elapsed = time.time() - self.phase_start
+                    self.rep_times.append(elapsed)
+                    s, m = classify_speed(elapsed, 1.2, 5.0)
+                    self.speed_status = s; self.speed_msg = m
+                    self.reps += 1
+                    self.phase = 'down'
+                elif self.angle > 155: # Safety reset
+                    self.phase = 'down'
 
             issues = []
             l_drift = abs(lms[LM['L_EL']].x - lms[LM['L_SH']].x) * 100
@@ -421,16 +453,20 @@ class PushupTracker(ExerciseBase):
 
             l_ang = angle3(l_sh, l_el, l_wr)
             r_ang = angle3(r_sh, r_el, r_wr)
-            self.angle = (l_ang + r_ang) / 2
+            raw_avg = (l_ang + r_ang) / 2
+            self.smooth_angle(raw_avg)
 
             if self.phase == 'up' and self.angle < 90:
                 self.phase = 'down'; self.phase_start = time.time()
-            elif self.phase == 'down' and self.angle > 155:
-                elapsed = time.time() - self.phase_start
-                self.rep_times.append(elapsed)
-                s, m = classify_speed(elapsed)
-                self.speed_status = s; self.speed_msg = m
-                self.reps += 1; self.phase = 'up'
+            elif self.phase == 'down' and self.angle > 150:
+                if self.can_count_rep(0.8):
+                    elapsed = time.time() - self.phase_start
+                    self.rep_times.append(elapsed)
+                    # Pushups: 1.0s - 4.5s
+                    s, m = classify_speed(elapsed, 1.0, 4.5)
+                    self.speed_status = s; self.speed_msg = m
+                    self.reps += 1
+                self.phase = 'up'
 
             issues = []
             body_angle = angle3(l_sh, l_hip, l_ank)
@@ -466,69 +502,48 @@ class PushupTracker(ExerciseBase):
 class NeckRotationTracker(ExerciseBase):
     def __init__(self):
         super().__init__('neck_rotation')
-        self.phase = 'center'
-        self.last_side    = None
-        self.rotation_deg = 0.0
+        self.state = 'center' # center -> side -> center
+        self.last_side = None
 
     def process(self, lms, w, h):
         try:
-            nose  = lm_pt(lms, LM['NOSE'],  w, h)
-            l_sh  = lm_pt(lms, LM['L_SH'],  w, h)
-            r_sh  = lm_pt(lms, LM['R_SH'],  w, h)
-
-            sh_mid_x  = (l_sh[0] + r_sh[0]) // 2
-            sh_width  = abs(l_sh[0] - r_sh[0])
+            nose = lm_pt(lms, LM['NOSE'], w, h)
+            l_sh = lm_pt(lms, LM['L_SH'], w, h)
+            r_sh = lm_pt(lms, LM['R_SH'], w, h)
+            sh_mid_x = (l_sh[0] + r_sh[0]) // 2
+            sh_width = max(abs(l_sh[0] - r_sh[0]), 1)
+            
             threshold = sh_width * 0.22
+            dead_zone = sh_width * 0.10
 
-            nose_offset  = nose[0] - sh_mid_x
-            self.angle   = abs(nose_offset / max(sh_width, 1) * 90)
-            self.rotation_deg = nose_offset / max(sh_width,1) * 45
+            off = nose[0] - sh_mid_x
+            self.angle = abs(off / sh_width * 90)
 
-            if nose[0] < sh_mid_x - threshold:
-                current_side = 'left'
-            elif nose[0] > sh_mid_x + threshold:
-                current_side = 'right'
-            else:
-                current_side = 'center'
-
-            if current_side != 'center' and current_side != self.last_side:
-                if self.last_side is not None:
-                    elapsed = time.time() - self.phase_start
-                    self.rep_times.append(elapsed)
-                    s, m = classify_speed(elapsed)
-                    self.speed_status = s; self.speed_msg = m
-                    if self.last_side == 'right' and current_side == 'left':
+            if self.state == 'center':
+                if off < -threshold:
+                    self.state = 'side'; self.last_side = 'left'
+                    self.phase_start = time.time()
+                elif off > threshold:
+                    self.state = 'side'; self.last_side = 'right'
+                    self.phase_start = time.time()
+                self.feedback = 'Rotate head to either side'
+            elif self.state == 'side':
+                self.feedback = f'Good {self.last_side}! Now return to Center'
+                if abs(off) < dead_zone:
+                    if self.can_count_rep(1.2):
                         self.reps += 1
-                self.last_side   = current_side
-                self.phase_start = time.time()
-
-            issues = []
-            sh_y_diff = abs(l_sh[1] - r_sh[1])
-            if sh_y_diff > h * 0.05:
-                issues.append('Keep shoulders still — only rotate neck')
-            time_in_phase = time.time() - self.phase_start
-            if time_in_phase < SPEED_TOO_FAST and current_side != 'center':
-                issues.append('Slow down — medium speed only')
-            if self.angle < 20 and current_side != 'center':
-                issues.append('Rotate further for full range')
-
-            if issues:
-                self.feedback = issues[0]; self.feedback_col = RED
-                self.form_score = max(40, self.form_score - 1)
-            else:
-                if current_side == 'left':   self.feedback = 'Rotating Left ←'
-                elif current_side == 'right': self.feedback = 'Rotating Right →'
-                else:                         self.feedback = 'Head Centred'
-                self.feedback_col = GREEN
-                self.form_score = min(100, self.form_score + 1)
-
+                        self.state = 'center'
+                        self.feedback = 'Rep Counted! Return to center'
+            
+            self.feedback_col = GREEN
+            self.form_score = 100
             return [(nose, self.angle, self.feedback_col)]
-        except Exception:
-            return []
+        except Exception: return []
 
     def hud_info(self):
+        sides = " + ".join(list(self.sides_reached)).upper() or "CENTER"
         return [
-            ('Direction', self.last_side.upper() if self.last_side else 'CENTER', BLUE),
+            ('Progress', sides, BLUE),
             ('Rotation', f'{self.angle:.0f}°', self.feedback_col),
             ('Speed', self.speed_msg or '—', GREEN if self.speed_status=='good' else
              YELLOW if self.speed_status=='too_slow' else RED),
@@ -536,76 +551,44 @@ class NeckRotationTracker(ExerciseBase):
 
 
 class NeckTiltTracker(ExerciseBase):
-    """
-    Neck lateral tilt: ear moves toward shoulder.
-    Tracks left ear y vs left shoulder y distance, and right side.
-    Phase LEFT: left ear significantly lower than right ear
-    Phase RIGHT: right ear significantly lower than left ear
-    """
     def __init__(self):
         super().__init__('neck_tilt')
-        self.phase     = 'center'
+        self.state = 'center' # center -> side -> center
         self.last_side = None
 
     def process(self, lms, w, h):
         try:
             l_ear = lm_pt(lms, LM['L_EAR'], w, h)
             r_ear = lm_pt(lms, LM['R_EAR'], w, h)
-            l_sh  = lm_pt(lms, LM['L_SH'],  w, h)
-            r_sh  = lm_pt(lms, LM['R_SH'],  w, h)
-            nose  = lm_pt(lms, LM['NOSE'],  w, h)
+            ear_y_diff = l_ear[1] - r_ear[1]
+            ear_sep = max(abs(l_ear[0] - r_ear[0]), 1)
+            
+            threshold = max(ear_sep * 0.25, 25)
+            dead_zone = max(ear_sep * 0.10, 10)
 
-            ear_y_diff  = l_ear[1] - r_ear[1]   # positive = left ear lower
-            sh_height   = abs(l_sh[1] - r_sh[1])
-            ear_sep     = abs(l_ear[0] - r_ear[0])
-            threshold   = max(ear_sep * 0.20, 15)
+            # Use ear vertical offset for tilt check
+            self.angle = abs(math.degrees(math.atan2(abs(ear_y_diff), ear_sep)))
 
-            # Approximate tilt angle
-            self.angle = abs(math.degrees(math.atan2(abs(ear_y_diff), max(ear_sep,1))))
+            if self.state == 'center':
+                if ear_y_diff > threshold:
+                    self.state = 'side'; self.last_side = 'left'
+                    self.phase_start = time.time()
+                elif ear_y_diff < -threshold:
+                    self.state = 'side'; self.last_side = 'right'
+                    self.phase_start = time.time()
+                self.feedback = 'Tilt head to either side'
+            elif self.state == 'side':
+                 self.feedback = f'Good {self.last_side}! Now return to Center'
+                 if abs(ear_y_diff) < dead_zone:
+                     if self.can_count_rep(1.2):
+                         self.reps += 1
+                         self.state = 'center'
+                         self.feedback = 'Rep Counted! Return to center'
 
-            if ear_y_diff > threshold:
-                current_side = 'left'
-            elif ear_y_diff < -threshold:
-                current_side = 'right'
-            else:
-                current_side = 'center'
-
-            if current_side != 'center' and current_side != self.last_side:
-                if self.last_side is not None:
-                    elapsed = time.time() - self.phase_start
-                    self.rep_times.append(elapsed)
-                    s, m = classify_speed(elapsed)
-                    self.speed_status = s; self.speed_msg = m
-                    if self.last_side == 'left' and current_side == 'right':
-                        self.reps += 1
-                    elif self.last_side == 'right' and current_side == 'left':
-                        self.reps += 1
-                self.last_side   = current_side
-                self.phase_start = time.time()
-
-            issues = []
-            # Shoulders should stay level
-            if sh_height > h * 0.04:
-                issues.append('Keep shoulders level — only tilt head')
-            # Head shouldn't rotate (nose should stay roughly centred)
-            nose_center = (l_sh[0] + r_sh[0]) // 2
-            if abs(nose[0] - nose_center) > abs(l_sh[0] - r_sh[0]) * 0.3:
-                issues.append('Keep face forward — no rotation')
-
-            if issues:
-                self.feedback = issues[0]; self.feedback_col = RED
-                self.form_score = max(40, self.form_score - 1)
-            else:
-                if current_side == 'left':   self.feedback = 'Tilting Left ←'
-                elif current_side == 'right': self.feedback = 'Tilting Right →'
-                else:                         self.feedback = 'Head Centred — tilt now'
-                self.feedback_col = GREEN
-                self.form_score = min(100, self.form_score + 1)
-
-            return [(nose, self.angle, self.feedback_col)]
-        except Exception:
-            return []
-
+            self.feedback_col = GREEN
+            self.form_score = 100
+            return [(l_ear, self.angle, self.feedback_col)]
+        except Exception: return []
     def hud_info(self):
         return [
             ('Side', self.last_side.upper() if self.last_side else 'CENTER', BLUE),
@@ -656,11 +639,13 @@ class ShoulderRollTracker(ExerciseBase):
             elif self.phase == 'up' and offset > threshold:
                 self.phase = 'down'
             elif self.phase == 'down' and abs(offset) < threshold * 0.5:
-                elapsed = time.time() - self.phase_start
-                self.rep_times.append(elapsed)
-                s, m = classify_speed(elapsed)
-                self.speed_status = s; self.speed_msg = m
-                self.reps += 1
+                if self.can_count_rep(0.9):
+                    elapsed = time.time() - self.phase_start
+                    self.rep_times.append(elapsed)
+                    # Shoulder rolls: 1.5s - 5.0s
+                    s, m = classify_speed(elapsed, 1.5, 5.0)
+                    self.speed_status = s; self.speed_msg = m
+                    self.reps += 1
                 self.phase = 'neutral'
 
             issues = []
@@ -720,11 +705,14 @@ class ShoulderPressTracker(ExerciseBase):
             if self.phase == 'down' and self.angle > 155:
                 self.phase = 'up'; self.phase_start = time.time()
             elif self.phase == 'up' and self.angle < 90:
-                elapsed = time.time() - self.phase_start
-                self.rep_times.append(elapsed)
-                s, m = classify_speed(elapsed)
-                self.speed_status = s; self.speed_msg = m
-                self.reps += 1; self.phase = 'down'
+                if self.can_count_rep(0.8):
+                    elapsed = time.time() - self.phase_start
+                    self.rep_times.append(elapsed)
+                    # Shoulder press: 1.2s - 4.8s
+                    s, m = classify_speed(elapsed, 1.2, 4.8)
+                    self.speed_status = s; self.speed_msg = m
+                    self.reps += 1
+                self.phase = 'down'
 
             issues = []
             # Wrists should be above elbows when pressing (y less in image = higher)
@@ -788,7 +776,8 @@ class LateralRaiseTracker(ExerciseBase):
             # Angle: hip → shoulder → wrist (arm raise angle)
             l_ang = angle3(l_hip, l_sh, l_wr)
             r_ang = angle3(l_hip, r_sh, r_wr)   # approx
-            self.angle = (l_ang + r_ang) / 2
+            raw_avg = (l_ang + r_ang) / 2
+            self.smooth_angle(raw_avg)
 
             # Arms up = wrist y < shoulder y (smaller y = higher in frame)
             l_up = l_wr[1] < l_sh[1] + 20
@@ -798,11 +787,14 @@ class LateralRaiseTracker(ExerciseBase):
             if self.phase == 'down' and arms_up:
                 self.phase = 'up'; self.phase_start = time.time()
             elif self.phase == 'up' and not arms_up:
-                elapsed = time.time() - self.phase_start
-                self.rep_times.append(elapsed)
-                s, m = classify_speed(elapsed)
-                self.speed_status = s; self.speed_msg = m
-                self.reps += 1; self.phase = 'down'
+                if self.can_count_rep(0.8):
+                    elapsed = time.time() - self.phase_start
+                    self.rep_times.append(elapsed)
+                    # Lateral raises: 1.5s - 5.5s
+                    s, m = classify_speed(elapsed, 1.5, 5.5)
+                    self.speed_status = s; self.speed_msg = m
+                    self.reps += 1
+                self.phase = 'down'
 
             issues = []
             # Elbows should be slightly bent — not locked
@@ -1367,44 +1359,45 @@ def T(img, s, x, y, sc=0.55, c=WHITE, t=1, bold=False):
 def draw_rep_counter(frame, tracker, exercise_name):
     h, w = frame.shape[:2]
     is_yoga = getattr(tracker, 'is_yoga', False)
-    cv2.rectangle(frame, (12,12), (210,100), (10,11,16), -1)
-    cv2.rectangle(frame, (12,12), (210,100), BLUE, 1)
-    T(frame, EXERCISE_LABELS.get(exercise_name,''), 20, 36, 0.38, MUTE)
+    # Ultra-Compact Safe zone: 50px padding, smaller box
+    cv2.rectangle(frame, (50,50), (210,110), (10,11,16), -1)
+    cv2.rectangle(frame, (50,50), (210,110), BLUE, 1)
+    T(frame, EXERCISE_LABELS.get(exercise_name,''), 58, 68, 0.30, MUTE)
 
     if is_yoga:
         hold     = tracker._current_hold()
         target   = tracker.hold_target
         progress = min(hold / max(target, 1), 1.0)
         # Progress arc background
-        cv2.rectangle(frame, (20, 48), (200, 62), (25,25,35), -1)
-        cv2.rectangle(frame, (20, 48), (20+int(180*progress), 62),
+        cv2.rectangle(frame, (58, 75), (200, 85), (25,25,35), -1)
+        cv2.rectangle(frame, (58, 75), (58+int(142*progress), 85),
                       GREEN if progress < 1.0 else YELLOW, -1)
-        T(frame, f'{hold:.0f}s / {target}s', 20, 80, 0.55, WHITE, 1, bold=True)
-        T(frame, f'Sets: {tracker.reps}', 130, 80, 0.40, MUTE)
+        T(frame, f'{hold:.0f}/{target}s', 58, 102, 0.40, WHITE, 1, bold=True)
+        T(frame, f'S:{tracker.reps}', 160, 102, 0.32, MUTE)
     else:
-        T(frame, str(tracker.reps), 20, 85, 1.8, WHITE, 3, bold=True)
-        T(frame, 'REPS', 95, 85, 0.48, MUTE)
+        T(frame, str(tracker.reps), 58, 103, 1.1, WHITE, 2, bold=True)
+        T(frame, 'REPS', 115, 103, 0.36, MUTE)
 
 
 def draw_form_bar(frame, form_score, feedback, feedback_col):
     h, w = frame.shape[:2]
-    bx, by, bw, bh = 12, 110, 180, 14
+    bx, by, bw, bh = 50, 118, 160, 10
     col = GREEN if form_score >= 75 else YELLOW if form_score >= 50 else RED
     cv2.rectangle(frame, (bx,by), (bx+bw, by+bh), (25,25,35), -1)
     cv2.rectangle(frame, (bx,by), (bx+int(bw*form_score/100), by+bh), col, -1)
     cv2.rectangle(frame, (bx,by), (bx+bw, by+bh), col, 1)
-    T(frame, f'Form: {form_score}%', bx, by-4, 0.34, MUTE)
-    T(frame, feedback, 12, 142, 0.48, feedback_col, 1, bold=True)
+    T(frame, f'Form: {form_score}%', bx, by-4, 0.28, MUTE)
+    T(frame, feedback, 50, 145, 0.38, feedback_col, 1, bold=True)
 
 
 def draw_hud_info(frame, info_list):
     h, w = frame.shape[:2]
-    px, py = w-200, 14
-    cv2.rectangle(frame, (px-8,py-4), (w-8, py+len(info_list)*28+4), (10,11,16), -1)
-    cv2.rectangle(frame, (px-8,py-4), (w-8, py+len(info_list)*28+4), (50,50,60), 1)
+    px, py = w-220, 50
+    cv2.rectangle(frame, (px-8,py-11), (w-50, py+len(info_list)*28), (10,11,16), -1)
+    cv2.rectangle(frame, (px-8,py-11), (w-50, py+len(info_list)*28), (50,50,60), 1)
     for i, (label, val, col) in enumerate(info_list):
-        T(frame, f'{label}:', px, py+i*28+14, 0.36, MUTE)
-        T(frame, str(val),    px+90, py+i*28+14, 0.44, col, 1, bold=True)
+        T(frame, f'{label}:', px, py+i*28, 0.30, MUTE)
+        T(frame, str(val),    px+90, py+i*28, 0.38, col, 1, bold=True)
 
 
 def draw_speed_indicator(frame, speed_status, speed_msg):
@@ -1504,20 +1497,30 @@ class ExerciseApp:
         print('[OK] PoseLandmarker (heavy) loaded')
 
     def start_camera(self):
-        # Try multiple indices and backends
+        # Explicitly release any existing handle
+        if self.cap: 
+            try: self.cap.release()
+            except: pass
+            self.cap = None
+
+        # Simplified index search (Standard fallback to DSHOW)
         for idx in [0, 1]:
+            # Standard first
+            self.cap = cv2.VideoCapture(idx)
+            if self.cap and self.cap.isOpened(): break
+            # DSHOW fallback
             self.cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
-            if self.cap.isOpened(): break
+            if self.cap and self.cap.isOpened(): break
         
         if not self.cap or not self.cap.isOpened():
-            self.cap = cv2.VideoCapture(0)
-
-        if not self.cap.isOpened(): return False, 'Cannot open webcam'
+            return False, 'Cannot open webcam'
         
-        # Reduced aggressive settings for better compatibility
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT,  480)
-        self.cap.set(cv2.CAP_PROP_FPS, 30)
+        # Performance optimized settings
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.cap.set(cv2.CAP_PROP_FPS, 24)
+        
+        # REMOVED: redundant self.cap.set logic
         
         try:
             self._load_model()
@@ -1540,6 +1543,11 @@ class ExerciseApp:
     def stop_exercise(self):
         with self._lock:
             self.state = 'cam_ready'
+            # Immediate silencer for buzzer/feedback
+            if self.tracker:
+                self.tracker.feedback = ""
+                self.tracker.speed_status = "good"
+                self.tracker.form_score = 100
 
     def reset_exercise(self):
         with self._lock:
@@ -1591,11 +1599,12 @@ class ExerciseApp:
         return {'state': s, 'exercise': ex, 'stats': stats}
 
     def gen_frames(self):
+        frame_count = 0
         while True:
             if not self.cap or not self.cap.isOpened():
                 blank = np.zeros((480,640,3), dtype=np.uint8)
                 T(blank, 'Camera starting...', 140, 240, 0.9, MUTE)
-                _, buf = cv2.imencode('.jpg', blank, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                _, buf = cv2.imencode('.jpg', blank, [cv2.IMWRITE_JPEG_QUALITY, 55])
                 yield b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buf.tobytes() + b'\r\n'
                 time.sleep(0.05)
                 continue
@@ -1609,6 +1618,7 @@ class ExerciseApp:
                 time.sleep(0.1)
                 continue
 
+            frame_count += 1
             now = time.time()
             elapsed = now - self._last_frame_t
             if elapsed < FRAME_INTERVAL:
@@ -1622,15 +1632,18 @@ class ExerciseApp:
                 self.ts_ms += int(FRAME_INTERVAL * 1000)
 
                 lms = None
-                if self.landmarker:
+                # AI SPEED OPTIMIZATION: Only detect every 2nd frame
+                if self.landmarker and (frame_count % 2 == 0):
                     try:
                         rgb    = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                         mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
                         r      = self.landmarker.detect_for_video(mp_img, int(self.ts_ms))
                         if r.pose_landmarks:
                             lms = r.pose_landmarks[0]
-                    except Exception:
-                        pass
+                            self._last_lms = lms # Cache for next skipped frame
+                    except Exception: pass
+                else:
+                    lms = getattr(self, '_last_lms', None)
 
                 with self._lock:
                     cur_state = self.state
@@ -1641,6 +1654,7 @@ class ExerciseApp:
                     accent = self.accent_map.get(cur_ex, BLUE)
                     draw_skeleton(frame, lms, accent)
 
+                    # ANALYSIS SYNC: Process tracker every frame (using lms or cached lms)
                     if cur_state == 'tracking' and tracker:
                         angle_pts = tracker.process(lms, w, h)
                         for (jpt, ang, col) in (angle_pts or []):
@@ -1657,10 +1671,10 @@ class ExerciseApp:
                     elif cur_state == 'cam_ready':
                         draw_idle_overlay(frame, cur_ex)
 
-            except Exception:
-                pass
+            except Exception: pass
 
-            _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 82])
+            # LOWER QUALITY = LOWER LAG
+            _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 55])
             yield b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buf.tobytes() + b'\r\n'
 
 

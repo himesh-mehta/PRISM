@@ -136,8 +136,13 @@ const PostureDetection = () => {
     } catch (e) { }
   }, [startPolling]);
 
+  // Dedicated unmount cleanup to avoid race conditions
   useEffect(() => {
-    return () => { if (pollTimerRef.current) clearInterval(pollTimerRef.current); };
+    return () => { 
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      // Ensure camera is released ONLY on unmount
+      stopCamera();
+    };
   }, []);
 
   // Keyboard shortcut listener for spacebar to toggle Pause

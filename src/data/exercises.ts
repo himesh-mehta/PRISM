@@ -1,112 +1,234 @@
 export interface Exercise {
   id: string;
   name: string;
-  bodyPart: string;
-  difficulty: "Beginner" | "Intermediate" | "Advanced";
+  category: "Strength" | "Shoulder" | "Core / Back" | "Neck" | "Yoga";
+  difficulty: "Beginner" | "Intermediate";
   description: string;
   steps: string[];
   reps: string;
   sets: string;
   image: string;
   duration?: string;
-  equipment?: string;
-  targetMuscles?: string[];
+  targetMuscles: string[];
+  objectPosition?: string;
 }
-
-export const bodyParts = [
-  "Neck", "Shoulder", "Upper Back", "Lower Back", "Chest",
-  "Arms", "Core", "Hip", "Knee", "Ankle & Foot", "Full Body",
-];
-
-export const bodyPartIcons: Record<string, string> = {
-  "Neck": "🦴",
-  "Shoulder": "💪",
-  "Upper Back": "🔙",
-  "Lower Back": "🏋️",
-  "Chest": "🫁",
-  "Arms": "💪",
-  "Core": "🎯",
-  "Hip": "🦵",
-  "Knee": "🦿",
-  "Ankle & Foot": "🦶",
-  "Full Body": "🧘",
-};
 
 export const exercises: Exercise[] = [
   // Neck
-  { id: "n1", name: "Neck Flexion Stretch", bodyPart: "Neck", difficulty: "Beginner", description: "Gently tilt your head forward to stretch the back of the neck.", steps: ["Sit upright", "Slowly lower chin to chest", "Hold 15-20 seconds", "Return to start"], reps: "5", sets: "2", image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=300&fit=crop", duration: "5 min", equipment: "None", targetMuscles: ["Upper Trapezius", "Splenius"] },
-  { id: "n2", name: "Neck Side Bend", bodyPart: "Neck", difficulty: "Beginner", description: "Tilt head sideways to stretch the lateral neck muscles.", steps: ["Sit tall", "Tilt ear toward shoulder", "Hold 15 seconds each side", "Repeat"], reps: "5 each side", sets: "2", image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=300&fit=crop", duration: "5 min", equipment: "None", targetMuscles: ["Scalenes", "SCM"] },
-  { id: "n3", name: "Neck Rotation", bodyPart: "Neck", difficulty: "Beginner", description: "Rotate head side to side to improve cervical mobility.", steps: ["Look straight ahead", "Turn head to the right", "Hold 5 seconds", "Turn to left"], reps: "10 each side", sets: "2", image: "https://images.unsplash.com/photo-1552196563-55cd4e45efb3?w=400&h=300&fit=crop", duration: "4 min", equipment: "None", targetMuscles: ["Rotators", "SCM"] },
-  { id: "n4", name: "Chin Tucks", bodyPart: "Neck", difficulty: "Beginner", description: "Retract chin to strengthen deep neck flexors.", steps: ["Sit with straight posture", "Pull chin straight back", "Hold 5 seconds", "Release"], reps: "10", sets: "3", image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop", duration: "5 min", equipment: "None", targetMuscles: ["Deep Cervical Flexors"] },
-  { id: "n5", name: "Neck Isometric Hold", bodyPart: "Neck", difficulty: "Intermediate", description: "Press hand against head while resisting movement.", steps: ["Place hand on forehead", "Push head into hand", "Hold 10 seconds", "Repeat each direction"], reps: "5 each direction", sets: "2", image: "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=300&fit=crop", duration: "6 min", equipment: "None", targetMuscles: ["All Neck Muscles"] },
+  { 
+    id: "neck_rotation", 
+    name: "Neck Rotation", 
+    category: "Neck", 
+    difficulty: "Beginner", 
+    description: "Slowly rotate your head from side to side to improve cervical mobility.", 
+    steps: ["Sit or stand tall", "Turn your head slowly to the right", "Hold briefly, then return to center", "Turn your head slowly to the left"], 
+    reps: "10 per side", sets: "2", 
+    image: "/assets/exercises/neck_rotation.png", 
+    duration: "4 min", 
+    targetMuscles: ["Sternocleidomastoid", "Scalenes"],
+    objectPosition: "center 15%"
+  },
+  { 
+    id: "neck_tilt", 
+    name: "Neck Tilt", 
+    category: "Neck", 
+    difficulty: "Beginner", 
+    description: "Tilt your ear toward your shoulder to stretch the lateral neck muscles.", 
+    steps: ["Keep shoulders relaxed and level", "Lower right ear toward right shoulder", "Hold for 5 seconds", "Repeat for the left side"], 
+    reps: "8 per side", sets: "2", 
+    image: "/assets/exercises/neck_tilt.png", 
+    duration: "5 min", 
+    targetMuscles: ["Scalenes", "Trapezius"],
+    objectPosition: "center 15%"
+  },
+
+  // Strength
+  { 
+    id: "squats", 
+    name: "Squats", 
+    category: "Strength", 
+    difficulty: "Beginner", 
+    description: "Lower your hips from a standing position and then stand back up.", 
+    steps: ["Stand with feet shoulder-width apart", "Lower hips as if sitting in a chair", "Keep back straight and chest up", "Push through heels to return to start"], 
+    reps: "12", sets: "3", 
+    image: "/assets/exercises/squat.png", 
+    duration: "5 min", 
+    targetMuscles: ["Quadriceps", "Glutes", "Hamstrings"],
+    objectPosition: "center 25%"
+  },
+  { 
+    id: "pushups", 
+    name: "Push-ups", 
+    category: "Strength", 
+    difficulty: "Intermediate", 
+    description: "A classic upper body exercise performed by lowering and raising the body using the arms.", 
+    steps: ["Place hands slightly wider than shoulders", "Keep body in a straight line from head to heels", "Lower chest toward the floor", "Push back up to starting position"], 
+    reps: "10", sets: "3", 
+    image: "/assets/exercises/pushup.png", 
+    duration: "6 min", 
+    targetMuscles: ["Chest", "Triceps", "Shoulders"],
+    objectPosition: "center 75%"
+  },
+  { 
+    id: "lunges", 
+    name: "Lunges", 
+    category: "Strength", 
+    difficulty: "Beginner", 
+    description: "Step forward with one leg while lowering your hips.", 
+    steps: ["Step forward with one leg", "Lower hips until both knees are bent at 90 degrees", "Keep front knee aligned with ankle", "Push back to starting position"], 
+    reps: "10 per leg", sets: "3", 
+    image: "https://images.unsplash.com/photo-1601422407692-ec4eeec1d9b3?w=800&q=80", 
+    duration: "7 min", 
+    targetMuscles: ["Quads", "Glutes", "Hamstrings"] 
+  },
+  { 
+    id: "plank", 
+    name: "Plank", 
+    category: "Strength", 
+    difficulty: "Intermediate", 
+    description: "Hold a position similar to a push-up for the maximum possible time.", 
+    steps: ["Place forearms on the floor, elbows under shoulders", "Keep body in a straight line", "Engage core and glutes", "Hold position without dropping hips"], 
+    reps: "45 sec", sets: "3", 
+    image: "https://images.unsplash.com/photo-1566241440091-ec10de8db2e1?w=800&q=80", 
+    duration: "5 min", 
+    targetMuscles: ["Core", "Shoulders", "Glutes"] 
+  },
+  { 
+    id: "glute_bridge", 
+    name: "Glute Bridge", 
+    category: "Strength", 
+    difficulty: "Beginner", 
+    description: "Lying on your back and lifting your hips toward the ceiling.", 
+    steps: ["Lie on back with knees bent and feet flat", "Lift hips toward the ceiling", "Squeeze glutes at the top", "Lower back down slowly"], 
+    reps: "15", sets: "3", 
+    image: "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&q=80", 
+    duration: "5 min", 
+    targetMuscles: ["Glutes", "Lower Back", "Hamstrings"] 
+  },
 
   // Shoulder
-  { id: "s1", name: "Pendulum Swings", bodyPart: "Shoulder", difficulty: "Beginner", description: "Gently swing arm in circles to loosen shoulder joint.", steps: ["Lean forward on table", "Let arm hang freely", "Swing in small circles", "Gradually increase range"], reps: "10 each direction", sets: "2", image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=300&fit=crop", duration: "5 min", equipment: "Table/Chair", targetMuscles: ["Deltoids", "Rotator Cuff"] },
-  { id: "s2", name: "Wall Slides", bodyPart: "Shoulder", difficulty: "Beginner", description: "Slide arms up a wall to improve shoulder flexion.", steps: ["Stand facing wall", "Place forearms on wall", "Slide up slowly", "Slide back down"], reps: "10", sets: "3", image: "https://images.unsplash.com/photo-1434608519344-49d77a699e1d?w=400&h=300&fit=crop", duration: "6 min", equipment: "Wall", targetMuscles: ["Serratus Anterior", "Trapezius"] },
-  { id: "s3", name: "External Rotation with Band", bodyPart: "Shoulder", difficulty: "Intermediate", description: "Strengthen rotator cuff with resistance band.", steps: ["Hold band at elbow height", "Keep elbow at side", "Rotate forearm outward", "Slowly return"], reps: "12", sets: "3", image: "https://images.unsplash.com/photo-1598971457999-ca4ef48a9a71?w=400&h=300&fit=crop", duration: "8 min", equipment: "Resistance Band", targetMuscles: ["Infraspinatus", "Teres Minor"] },
-  { id: "s4", name: "Shoulder Shrugs", bodyPart: "Shoulder", difficulty: "Beginner", description: "Lift shoulders toward ears to strengthen upper trapezius.", steps: ["Stand with arms at sides", "Lift shoulders up", "Hold 3 seconds", "Lower slowly"], reps: "15", sets: "3", image: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&h=300&fit=crop", duration: "5 min", equipment: "Optional Weights", targetMuscles: ["Upper Trapezius"] },
-  { id: "s5", name: "Cross-Body Stretch", bodyPart: "Shoulder", difficulty: "Beginner", description: "Stretch posterior shoulder muscles.", steps: ["Bring arm across chest", "Hold with opposite hand", "Hold 20 seconds", "Switch arms"], reps: "3 each side", sets: "2", image: "https://images.unsplash.com/photo-1575052814086-f385e2e2ad33?w=400&h=300&fit=crop", duration: "4 min", equipment: "None", targetMuscles: ["Posterior Deltoid"] },
+  { 
+    id: "shoulder_press", 
+    name: "Shoulder Press", 
+    category: "Shoulder", 
+    difficulty: "Intermediate", 
+    description: "Lift weights overhead to strengthen the shoulders.", 
+    steps: ["Hold weights at shoulder level", "Press weights upward until arms are straight", "Keep core engaged and back straight", "Lower slowly to shoulder level"], 
+    reps: "12", sets: "3", 
+    image: "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=80", 
+    duration: "6 min", 
+    targetMuscles: ["Deltoids", "Triceps", "Upper Back"] 
+  },
+  { 
+    id: "lateral_raises", 
+    name: "Lateral Raises", 
+    category: "Shoulder", 
+    difficulty: "Beginner", 
+    description: "Raise arms out to the sides to target the lateral deltoids.", 
+    steps: ["Stand with weights at your sides", "Raise arms out to the side until shoulder level", "Keep a slight bend in elbows", "Lower down slowly"], 
+    reps: "12", sets: "3", 
+    image: "https://images.unsplash.com/photo-1610423081191-2ca42bbcd4e9?w=800&q=80", 
+    duration: "5 min", 
+    targetMuscles: ["Lateral Deltoid", "Trapezius"] 
+  },
+  { 
+    id: "arm_circles", 
+    name: "Arm Circles", 
+    category: "Shoulder", 
+    difficulty: "Beginner", 
+    description: "Move your arms in small circular motions to improve mobility.", 
+    steps: ["Extend arms out to the sides", "Make small circular motions", "Keep shoulders relaxed", "Reverse direction after 30 seconds"], 
+    reps: "60 sec", sets: "2", 
+    image: "https://images.unsplash.com/photo-1562771242-a02d9090c90c?w=800&q=80", 
+    duration: "4 min", 
+    targetMuscles: ["Deltoids", "Rotator Cuff"] 
+  },
 
-  // Upper Back
-  { id: "ub1", name: "Cat-Cow Stretch", bodyPart: "Upper Back", difficulty: "Beginner", description: "Alternate between arching and rounding the spine.", steps: ["Get on hands and knees", "Arch back upward (cat)", "Drop belly toward floor (cow)", "Repeat smoothly"], reps: "10", sets: "2", image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=300&fit=crop", duration: "5 min", equipment: "Yoga Mat", targetMuscles: ["Erector Spinae", "Abdominals"] },
-  { id: "ub2", name: "Thoracic Extension", bodyPart: "Upper Back", difficulty: "Beginner", description: "Extend upper back over a foam roller.", steps: ["Place roller under upper back", "Support head with hands", "Extend over roller", "Hold 5 seconds"], reps: "8", sets: "2", image: "https://images.unsplash.com/photo-1570691079236-4beb908f5acb?w=400&h=300&fit=crop", duration: "6 min", equipment: "Foam Roller", targetMuscles: ["Thoracic Spine"] },
-  { id: "ub3", name: "Seated Row (Band)", bodyPart: "Upper Back", difficulty: "Intermediate", description: "Pull resistance band toward torso to strengthen mid-back.", steps: ["Sit with legs extended", "Loop band around feet", "Pull toward waist", "Squeeze shoulder blades"], reps: "12", sets: "3", image: "https://images.unsplash.com/photo-1598971457999-ca4ef48a9a71?w=400&h=300&fit=crop", duration: "8 min", equipment: "Resistance Band", targetMuscles: ["Rhomboids", "Latissimus Dorsi"] },
-  { id: "ub4", name: "Prone Y Raise", bodyPart: "Upper Back", difficulty: "Intermediate", description: "Lie face down and raise arms in Y position.", steps: ["Lie face down", "Extend arms overhead in Y", "Lift arms off ground", "Hold 3 seconds"], reps: "10", sets: "3", image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop", duration: "7 min", equipment: "Mat", targetMuscles: ["Lower Trapezius"] },
-  { id: "ub5", name: "Thread the Needle", bodyPart: "Upper Back", difficulty: "Beginner", description: "Rotate upper body for thoracic mobility.", steps: ["Start on all fours", "Thread one arm under body", "Rotate trunk", "Return and switch"], reps: "8 each side", sets: "2", image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=300&fit=crop", duration: "6 min", equipment: "Yoga Mat", targetMuscles: ["Thoracic Rotators"] },
+  // Core / Back
+  { 
+    id: "bird_dog", 
+    name: "Bird-Dog", 
+    category: "Core / Back", 
+    difficulty: "Beginner", 
+    description: "Extend opposite arm and leg while on all fours for stability.", 
+    steps: ["Start on all fours", "Extend opposite arm and leg simultaneously", "Keep hips square to the floor", "Switch sides after each rep"], 
+    reps: "10 per side", sets: "3", 
+    image: "https://images.unsplash.com/photo-1510894347713-fc3ed6fdf539?w=800&q=80", 
+    duration: "6 min", 
+    targetMuscles: ["Lower Back", "Core", "Glutes"] 
+  },
+  { 
+    id: "cat_cow", 
+    name: "Cat-Cow", 
+    category: "Core / Back", 
+    difficulty: "Beginner", 
+    description: "Flow between arching and rounding your spine to release tension.", 
+    steps: ["Start on all fours", "Inhale, drop belly, look up (Cow)", "Exhale, round back, look down (Cat)", "Repeat smoothly with breath"], 
+    reps: "10", sets: "2", 
+    image: "https://images.unsplash.com/photo-1599447421416-3414500d18a5?w=800&q=80", 
+    duration: "5 min", 
+    targetMuscles: ["Entire Spine", "Core"] 
+  },
+  { 
+    id: "superman_hold", 
+    name: "Superman Hold", 
+    category: "Core / Back", 
+    difficulty: "Intermediate", 
+    description: "Lie face down and lift your limbs to strengthen the back.", 
+    steps: ["Lie face down with arms and legs extended", "Lift arms, chest, and legs off the floor", "Squeeze lower back and glutes", "Hold briefly and lower slowly"], 
+    reps: "10", sets: "3", 
+    image: "https://images.unsplash.com/photo-1441924424398-3fec8ecdd774?w=800&q=80", 
+    duration: "5 min", 
+    targetMuscles: ["Lower Back", "Glutes", "Shoulders"] 
+  },
 
-  // Lower Back
-  { id: "lb1", name: "Pelvic Tilts", bodyPart: "Lower Back", difficulty: "Beginner", description: "Gently tilt pelvis to activate core and relieve lower back.", steps: ["Lie on back, knees bent", "Flatten lower back to floor", "Hold 5 seconds", "Release"], reps: "15", sets: "3", image: "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=300&fit=crop", duration: "5 min", equipment: "Mat", targetMuscles: ["Transverse Abdominis"] },
-  { id: "lb2", name: "Knee-to-Chest Stretch", bodyPart: "Lower Back", difficulty: "Beginner", description: "Pull knee toward chest to stretch lower back.", steps: ["Lie on back", "Pull one knee to chest", "Hold 20 seconds", "Switch legs"], reps: "5 each leg", sets: "2", image: "https://images.unsplash.com/photo-1552196563-55cd4e45efb3?w=400&h=300&fit=crop", duration: "5 min", equipment: "Mat", targetMuscles: ["Erector Spinae", "Glutes"] },
-  { id: "lb3", name: "Bird-Dog", bodyPart: "Lower Back", difficulty: "Intermediate", description: "Extend opposite arm and leg for core stability.", steps: ["Start on all fours", "Extend right arm and left leg", "Hold 5 seconds", "Switch sides"], reps: "10 each side", sets: "3", image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=300&fit=crop", duration: "8 min", equipment: "Mat", targetMuscles: ["Multifidus", "Glutes"] },
-  { id: "lb4", name: "Bridges", bodyPart: "Lower Back", difficulty: "Beginner", description: "Lift hips to strengthen glutes and lower back.", steps: ["Lie on back, knees bent", "Lift hips up", "Squeeze glutes at top", "Lower slowly"], reps: "12", sets: "3", image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=300&fit=crop", duration: "7 min", equipment: "Mat", targetMuscles: ["Gluteus Maximus", "Hamstrings"] },
-  { id: "lb5", name: "Superman Hold", bodyPart: "Lower Back", difficulty: "Intermediate", description: "Lie face down and lift arms and legs simultaneously.", steps: ["Lie face down", "Lift arms and legs", "Hold 5 seconds", "Lower slowly"], reps: "10", sets: "3", image: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&h=300&fit=crop", duration: "6 min", equipment: "Mat", targetMuscles: ["Erector Spinae"] },
-
-  // Chest
-  { id: "c1", name: "Doorway Pec Stretch", bodyPart: "Chest", difficulty: "Beginner", description: "Stretch chest muscles using a doorframe.", steps: ["Stand in doorway", "Place forearms on frame", "Step forward gently", "Hold 20 seconds"], reps: "3", sets: "2", image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop", duration: "4 min", equipment: "Doorframe", targetMuscles: ["Pectoralis Major"] },
-  { id: "c2", name: "Wall Push-ups", bodyPart: "Chest", difficulty: "Beginner", description: "Modified push-up against a wall.", steps: ["Stand arm's length from wall", "Place hands on wall", "Lean in, bend elbows", "Push back"], reps: "15", sets: "3", image: "https://images.unsplash.com/photo-1598971457999-ca4ef48a9a71?w=400&h=300&fit=crop", duration: "6 min", equipment: "Wall", targetMuscles: ["Pectoralis", "Triceps"] },
-  { id: "c3", name: "Chest Fly (Band)", bodyPart: "Chest", difficulty: "Intermediate", description: "Open and close arms against resistance.", steps: ["Anchor band behind you", "Hold ends with arms wide", "Bring hands together", "Slowly return"], reps: "12", sets: "3", image: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&h=300&fit=crop", duration: "8 min", equipment: "Resistance Band", targetMuscles: ["Pectoralis Major", "Anterior Deltoid"] },
-  { id: "c4", name: "Incline Push-ups", bodyPart: "Chest", difficulty: "Intermediate", description: "Push-ups on an elevated surface.", steps: ["Place hands on bench", "Lower chest toward bench", "Push back up", "Keep core tight"], reps: "10", sets: "3", image: "https://images.unsplash.com/photo-1434608519344-49d77a699e1d?w=400&h=300&fit=crop", duration: "7 min", equipment: "Bench/Step", targetMuscles: ["Upper Pectoralis", "Triceps"] },
-
-  // Arms
-  { id: "a1", name: "Bicep Curls", bodyPart: "Arms", difficulty: "Beginner", description: "Curl weight toward shoulder to strengthen biceps.", steps: ["Hold weights at sides", "Curl toward shoulders", "Squeeze at top", "Lower slowly"], reps: "12", sets: "3", image: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&h=300&fit=crop", duration: "6 min", equipment: "Dumbbells", targetMuscles: ["Biceps Brachii"] },
-  { id: "a2", name: "Tricep Dips (Chair)", bodyPart: "Arms", difficulty: "Intermediate", description: "Dip using a chair to target triceps.", steps: ["Place hands on chair edge", "Slide hips off chair", "Lower body by bending elbows", "Push back up"], reps: "10", sets: "3", image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=300&fit=crop", duration: "7 min", equipment: "Chair", targetMuscles: ["Triceps"] },
-  { id: "a3", name: "Wrist Flexion/Extension", bodyPart: "Arms", difficulty: "Beginner", description: "Curl and extend wrist for forearm strength.", steps: ["Rest forearm on table", "Hold light weight", "Curl wrist up", "Lower slowly"], reps: "15 each", sets: "2", image: "https://images.unsplash.com/photo-1598971457999-ca4ef48a9a71?w=400&h=300&fit=crop", duration: "5 min", equipment: "Light Weight", targetMuscles: ["Forearm Flexors", "Extensors"] },
-  { id: "a4", name: "Hammer Curls", bodyPart: "Arms", difficulty: "Beginner", description: "Curl with palms facing each other.", steps: ["Hold weights palms in", "Curl to shoulders", "Hold briefly", "Lower slowly"], reps: "12", sets: "3", image: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&h=300&fit=crop", duration: "6 min", equipment: "Dumbbells", targetMuscles: ["Brachioradialis", "Biceps"] },
-  { id: "a5", name: "Overhead Tricep Extension", bodyPart: "Arms", difficulty: "Intermediate", description: "Extend weight overhead to work triceps.", steps: ["Hold weight overhead", "Lower behind head", "Extend arms up", "Keep elbows close"], reps: "10", sets: "3", image: "https://images.unsplash.com/photo-1434608519344-49d77a699e1d?w=400&h=300&fit=crop", duration: "7 min", equipment: "Dumbbell", targetMuscles: ["Triceps Long Head"] },
-
-  // Core
-  { id: "co1", name: "Dead Bug", bodyPart: "Core", difficulty: "Beginner", description: "Alternately extend opposite arm and leg while lying on back.", steps: ["Lie on back, arms up", "Extend right arm and left leg", "Keep back flat", "Switch sides"], reps: "10 each side", sets: "3", image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=300&fit=crop", duration: "6 min", equipment: "Mat", targetMuscles: ["Transverse Abdominis", "Obliques"] },
-  { id: "co2", name: "Plank Hold", bodyPart: "Core", difficulty: "Intermediate", description: "Hold body in a straight line on forearms.", steps: ["Get on forearms and toes", "Keep body straight", "Engage core", "Hold 30-60 seconds"], reps: "3 holds", sets: "3", image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop", duration: "8 min", equipment: "Mat", targetMuscles: ["Rectus Abdominis", "Obliques", "Transverse Abdominis"] },
-  { id: "co3", name: "Side Plank", bodyPart: "Core", difficulty: "Intermediate", description: "Hold body sideways on one forearm.", steps: ["Lie on side", "Prop up on forearm", "Lift hips", "Hold 20-30 seconds"], reps: "3 each side", sets: "2", image: "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=300&fit=crop", duration: "7 min", equipment: "Mat", targetMuscles: ["Obliques", "Quadratus Lumborum"] },
-  { id: "co4", name: "Crunches", bodyPart: "Core", difficulty: "Beginner", description: "Curl upper body toward knees.", steps: ["Lie on back, knees bent", "Place hands behind head", "Curl shoulders up", "Lower slowly"], reps: "15", sets: "3", image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=300&fit=crop", duration: "5 min", equipment: "Mat", targetMuscles: ["Rectus Abdominis"] },
-  { id: "co5", name: "Russian Twists", bodyPart: "Core", difficulty: "Intermediate", description: "Rotate torso side to side while seated.", steps: ["Sit with knees bent", "Lean back slightly", "Rotate torso side to side", "Touch ground each side"], reps: "20 total", sets: "3", image: "https://images.unsplash.com/photo-1552196563-55cd4e45efb3?w=400&h=300&fit=crop", duration: "6 min", equipment: "Optional Weight", targetMuscles: ["Obliques", "Rectus Abdominis"] },
-  { id: "co6", name: "Leg Raises", bodyPart: "Core", difficulty: "Intermediate", description: "Raise legs while lying flat to target lower abs.", steps: ["Lie on back", "Keep legs straight", "Raise to 90 degrees", "Lower slowly"], reps: "12", sets: "3", image: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&h=300&fit=crop", duration: "7 min", equipment: "Mat", targetMuscles: ["Lower Abdominals", "Hip Flexors"] },
-
-  // Hip
-  { id: "h1", name: "Clamshells", bodyPart: "Hip", difficulty: "Beginner", description: "Open knees apart while lying on side.", steps: ["Lie on side, knees bent", "Keep feet together", "Open top knee", "Slowly close"], reps: "15 each side", sets: "3", image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=300&fit=crop", duration: "6 min", equipment: "Optional Band", targetMuscles: ["Gluteus Medius"] },
-  { id: "h2", name: "Hip Flexor Stretch", bodyPart: "Hip", difficulty: "Beginner", description: "Kneel and lean forward to stretch hip flexors.", steps: ["Kneel on one knee", "Push hips forward", "Hold 20 seconds", "Switch sides"], reps: "3 each side", sets: "2", image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=300&fit=crop", duration: "5 min", equipment: "Mat", targetMuscles: ["Iliopsoas", "Rectus Femoris"] },
-  { id: "h3", name: "Fire Hydrants", bodyPart: "Hip", difficulty: "Beginner", description: "Lift leg to the side while on all fours.", steps: ["Start on all fours", "Lift knee to side", "Hold 2 seconds", "Lower slowly"], reps: "12 each side", sets: "3", image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop", duration: "7 min", equipment: "Mat", targetMuscles: ["Gluteus Medius", "Hip Abductors"] },
-  { id: "h4", name: "Hip Circles", bodyPart: "Hip", difficulty: "Beginner", description: "Make circles with the hip for joint mobility.", steps: ["Stand on one leg", "Circle the other knee", "10 circles each direction", "Switch legs"], reps: "10 each direction", sets: "2", image: "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=300&fit=crop", duration: "5 min", equipment: "None", targetMuscles: ["Hip Joint Complex"] },
-  { id: "h5", name: "Pigeon Stretch", bodyPart: "Hip", difficulty: "Intermediate", description: "Deep hip opener targeting external rotators.", steps: ["From all fours, bring knee forward", "Extend back leg behind", "Lean into stretch", "Hold 30 seconds"], reps: "3 each side", sets: "2", image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=300&fit=crop", duration: "8 min", equipment: "Yoga Mat", targetMuscles: ["Piriformis", "Gluteus Maximus"] },
-
-  // Knee
-  { id: "k1", name: "Quad Sets", bodyPart: "Knee", difficulty: "Beginner", description: "Tighten thigh muscles while leg is straight.", steps: ["Sit with leg extended", "Press knee into floor", "Hold 5 seconds", "Release"], reps: "15", sets: "3", image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=300&fit=crop", duration: "5 min", equipment: "None", targetMuscles: ["Quadriceps"] },
-  { id: "k2", name: "Straight Leg Raises", bodyPart: "Knee", difficulty: "Beginner", description: "Lift straight leg to strengthen quadriceps.", steps: ["Lie on back", "Bend one knee, extend other", "Lift straight leg", "Hold 3 seconds"], reps: "12 each leg", sets: "3", image: "https://images.unsplash.com/photo-1552196563-55cd4e45efb3?w=400&h=300&fit=crop", duration: "7 min", equipment: "Mat", targetMuscles: ["Quadriceps", "Hip Flexors"] },
-  { id: "k3", name: "Wall Squats", bodyPart: "Knee", difficulty: "Intermediate", description: "Squat against a wall for quad strengthening.", steps: ["Stand with back against wall", "Slide down to 90 degrees", "Hold 15-30 seconds", "Slide up"], reps: "8", sets: "3", image: "https://images.unsplash.com/photo-1434608519344-49d77a699e1d?w=400&h=300&fit=crop", duration: "8 min", equipment: "Wall", targetMuscles: ["Quadriceps", "Glutes"] },
-  { id: "k4", name: "Step-Ups", bodyPart: "Knee", difficulty: "Intermediate", description: "Step up onto a platform for functional strength.", steps: ["Stand in front of step", "Step up with one foot", "Bring other foot up", "Step down slowly"], reps: "10 each leg", sets: "3", image: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&h=300&fit=crop", duration: "8 min", equipment: "Step/Bench", targetMuscles: ["Quadriceps", "Glutes", "Calves"] },
-  { id: "k5", name: "Hamstring Curl (Prone)", bodyPart: "Knee", difficulty: "Beginner", description: "Bend knee while lying face down.", steps: ["Lie face down", "Bend knee to 90 degrees", "Hold 3 seconds", "Lower slowly"], reps: "12 each leg", sets: "3", image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop", duration: "6 min", equipment: "Mat", targetMuscles: ["Hamstrings"] },
-
-  // Ankle & Foot
-  { id: "af1", name: "Ankle Circles", bodyPart: "Ankle & Foot", difficulty: "Beginner", description: "Rotate ankle in circles for joint mobility.", steps: ["Sit with leg elevated", "Circle ankle clockwise", "Then counter-clockwise", "10 each direction"], reps: "10 each direction", sets: "2", image: "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=300&fit=crop", duration: "4 min", equipment: "None", targetMuscles: ["Ankle Joint Complex"] },
-  { id: "af2", name: "Calf Raises", bodyPart: "Ankle & Foot", difficulty: "Beginner", description: "Rise onto toes to strengthen calves.", steps: ["Stand near wall for balance", "Rise onto toes", "Hold 3 seconds", "Lower slowly"], reps: "15", sets: "3", image: "https://images.unsplash.com/photo-1434608519344-49d77a699e1d?w=400&h=300&fit=crop", duration: "5 min", equipment: "Wall", targetMuscles: ["Gastrocnemius", "Soleus"] },
-  { id: "af3", name: "Toe Curls (Towel)", bodyPart: "Ankle & Foot", difficulty: "Beginner", description: "Scrunch towel with toes for foot strength.", steps: ["Place towel on floor", "Curl toes to grab towel", "Hold 5 seconds", "Release"], reps: "10", sets: "3", image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=300&fit=crop", duration: "5 min", equipment: "Towel", targetMuscles: ["Foot Intrinsics"] },
-  { id: "af4", name: "Ankle Dorsiflexion Stretch", bodyPart: "Ankle & Foot", difficulty: "Beginner", description: "Stretch front of ankle for improved mobility.", steps: ["Stand facing wall", "Place foot back", "Lean forward keeping heel down", "Hold 20 seconds"], reps: "3 each foot", sets: "2", image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=300&fit=crop", duration: "5 min", equipment: "Wall", targetMuscles: ["Tibialis Anterior"] },
-  { id: "af5", name: "Single Leg Balance", bodyPart: "Ankle & Foot", difficulty: "Intermediate", description: "Stand on one leg to improve ankle stability.", steps: ["Stand on one foot", "Hold balance 30 seconds", "Close eyes for challenge", "Switch feet"], reps: "3 each foot", sets: "3", image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=300&fit=crop", duration: "6 min", equipment: "None", targetMuscles: ["Peroneals", "Ankle Stabilizers"] },
-
-  // Full Body
-  { id: "fb1", name: "Sun Salutation", bodyPart: "Full Body", difficulty: "Beginner", description: "Yoga flow that stretches the entire body.", steps: ["Stand tall, arms up", "Fold forward", "Step back to plank", "Lower, cobra, down dog"], reps: "5 flows", sets: "2", image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=300&fit=crop", duration: "10 min", equipment: "Yoga Mat", targetMuscles: ["Full Body"] },
-  { id: "fb2", name: "Burpees (Modified)", bodyPart: "Full Body", difficulty: "Advanced", description: "Full body exercise with squat, plank, and jump.", steps: ["Stand tall", "Squat and place hands down", "Step back to plank", "Step forward and stand"], reps: "8", sets: "3", image: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&h=300&fit=crop", duration: "10 min", equipment: "None", targetMuscles: ["Full Body"] },
-  { id: "fb3", name: "Inchworms", bodyPart: "Full Body", difficulty: "Intermediate", description: "Walk hands out to plank and back.", steps: ["Stand tall", "Fold and walk hands to plank", "Hold 2 seconds", "Walk hands back, stand"], reps: "8", sets: "3", image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop", duration: "8 min", equipment: "None", targetMuscles: ["Hamstrings", "Core", "Shoulders"] },
-  { id: "fb4", name: "Mountain Climbers", bodyPart: "Full Body", difficulty: "Intermediate", description: "Alternate driving knees to chest in plank.", steps: ["Start in plank", "Drive right knee to chest", "Switch quickly", "Maintain plank position"], reps: "20 total", sets: "3", image: "https://images.unsplash.com/photo-1434608519344-49d77a699e1d?w=400&h=300&fit=crop", duration: "7 min", equipment: "Mat", targetMuscles: ["Core", "Hip Flexors", "Shoulders"] },
-  { id: "fb5", name: "Bear Crawls", bodyPart: "Full Body", difficulty: "Advanced", description: "Crawl forward on hands and feet.", steps: ["Start on all fours, knees hovering", "Move opposite hand and foot forward", "Crawl 10 steps", "Crawl backward"], reps: "5 forward/back", sets: "3", image: "https://images.unsplash.com/photo-1552196563-55cd4e45efb3?w=400&h=300&fit=crop", duration: "8 min", equipment: "Open Space", targetMuscles: ["Core", "Shoulders", "Quads"] },
+  // Yoga
+  { 
+    id: "tadasana", 
+    name: "Tadasana", 
+    category: "Yoga", 
+    difficulty: "Beginner", 
+    description: "Mountain pose: stand tall with focus and balance.", 
+    steps: ["Stand with feet together, weight even", "Engage quads and lift kneecaps", "Lengthen tailbone toward the floor", "Broaden collarbones, let arms hang"], 
+    reps: "60 sec", sets: "2", 
+    image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&q=80", 
+    duration: "5 min", 
+    targetMuscles: ["Postural Stabilizers", "Core"] 
+  },
+  { 
+    id: "tree_pose", 
+    name: "Tree Pose", 
+    category: "Yoga", 
+    difficulty: "Beginner", 
+    description: "A balancing pose that strengthens the legs and core.", 
+    steps: ["Stand on one leg", "Place other foot on inner thigh (avoid knee)", "Press foot into thigh and thigh into foot", "Hands at heart or overhead"], 
+    reps: "30 sec per side", sets: "2", 
+    image: "https://images.unsplash.com/photo-1575052814086-f385e2e2ad33?w=800&q=80", 
+    duration: "6 min", 
+    targetMuscles: ["Ankle", "Core", "Hip Abductors"] 
+  },
+  { 
+    id: "warrior_i", 
+    name: "Warrior I", 
+    category: "Yoga", 
+    difficulty: "Intermediate", 
+    description: "A powerful standing pose that builds strength and focus.", 
+    steps: ["Step one foot back, 45-degree angle", "Keep front knee bent at 90 degrees", "Hips squared forward", "Reach arms overhead, look up"], 
+    reps: "30 sec per side", sets: "3", 
+    image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800&q=80", 
+    duration: "8 min", 
+    targetMuscles: ["Quads", "Shoulders", "Psoas"] 
+  },
+  { 
+    id: "downward_dog", 
+    name: "Downward Dog", 
+    category: "Yoga", 
+    difficulty: "Beginner", 
+    description: "An inverted V-pose that stretches the entire back body.", 
+    steps: ["Start on hands and knees", "Lift hips high toward the ceiling", "Press heels toward the floor", "Keep fingers spread and spine long"], 
+    reps: "45 sec", sets: "3", 
+    image: "https://images.unsplash.com/photo-1588282322643-473605441d13?w=800&q=80", 
+    duration: "6 min", 
+    targetMuscles: ["Hamstrings", "Calves", "Shoulders"] 
+  },
 ];
