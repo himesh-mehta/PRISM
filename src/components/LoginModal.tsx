@@ -5,10 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { auth, db } from "@/lib/firebase";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
-import { LogIn, UserPlus, User, Mail, Ruler, Weight, Calendar, Users, Briefcase, Stethoscope, X } from "lucide-react";
+import { LogIn, UserPlus, User, Mail, Ruler, Weight, Calendar, Users, Briefcase, Stethoscope } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -26,14 +23,14 @@ interface LoginModalProps {
 }
 
 const LoginModal = ({ isOpen, onClose, initialTab = "login" }: LoginModalProps) => {
-    const { login } = useAuth();
+    const { login, signup } = useAuth();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<"login" | "signup" | "google-setup">(initialTab);
+    const [activeTab, setActiveTab] = useState<"login" | "signup">(initialTab as any);
 
     // Sync activeTab with initialTab when modal opens
     useEffect(() => {
         if (isOpen) {
-            setActiveTab(initialTab);
+            setActiveTab(initialTab as any);
         }
     }, [isOpen, initialTab]);
 
@@ -42,7 +39,6 @@ const LoginModal = ({ isOpen, onClose, initialTab = "login" }: LoginModalProps) 
     const [loginLoading, setLoginLoading] = useState(false);
     const [signupLoading, setSignupLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [googleUser, setGoogleUser] = useState<any | null>(null); // For intermediate state setup
 
     // Signup State
     const [signupStep, setSignupStep] = useState<1 | 2>(1);
@@ -74,15 +70,21 @@ const LoginModal = ({ isOpen, onClose, initialTab = "login" }: LoginModalProps) 
         setLoginLoading(true);
         setError(null);
 
-        try {
-            await signInWithEmailAndPassword(auth, loginForm.email, loginForm.password);
-            onClose();
-        } catch (err: any) {
-            console.error("Login error:", err);
-            setError(err.message || "Failed to sign in. Please check your credentials.");
-        } finally {
+        // Mock login
+        setTimeout(() => {
+            const mockProfile = {
+                name: loginForm.email.split('@')[0],
+                email: loginForm.email,
+                age: 25,
+                weight: 70,
+                height: 170,
+                role: "patient" as Role // Default to patient for mock login
+            };
+            login(mockProfile as any);
             setLoginLoading(false);
-        }
+            onClose();
+            navigate("/dashboard");
+        }, 1000);
     };
 
     const handleSignupSubmit = async (e: React.FormEvent) => {
@@ -99,10 +101,9 @@ const LoginModal = ({ isOpen, onClose, initialTab = "login" }: LoginModalProps) 
         if (role === "doctor" && (!signupForm.age || !signupForm.credentials || !signupForm.specialization)) return;
 
         setSignupLoading(true);
-        try {
-            const userCredential = await createUserWithEmailAndPassword(auth, signupForm.email, signupForm.password);
-            const firebaseUser = userCredential.user;
-
+        
+        // Mock signup
+        setTimeout(() => {
             const profileData = {
                 name: signupForm.name,
                 email: signupForm.email,
@@ -115,91 +116,16 @@ const LoginModal = ({ isOpen, onClose, initialTab = "login" }: LoginModalProps) 
                 specialization: signupForm.specialization || ""
             };
 
-            await setDoc(doc(db, "users", firebaseUser.uid), profileData);
-
-            // Fetch profile for immediate trigger
-            login(profileData as any);
-
+            signup(profileData as any);
+            setSignupLoading(false);
             onClose();
             if (role === "doctor") {
                 navigate("/doctor/dashboard");
             } else {
                 navigate("/dashboard");
             }
-        } catch (err: any) {
-            console.error("Signup error:", err);
-            setError(err.message || "Failed to create account.");
-        } finally {
-            setSignupLoading(false);
-        }
+        }, 1000);
     };
-
-    const handleGoogleSignIn = async () => {
-        setError(null);
-        try {
-            const provider = new GoogleAuthProvider();
-            const result = await signInWithPopup(auth, provider);
-            const firebaseUser = result.user;
-
-            const docRef = doc(db, "users", firebaseUser.uid);
-            const docSnap = await getDoc(docRef);
-
-            if (!docSnap.exists()) {
-                setGoogleUser(firebaseUser);
-                setActiveTab("google-setup");
-            } else {
-                const data = docSnap.data();
-                onClose();
-                if (data?.role === "doctor") {
-                    navigate("/doctor/dashboard");
-                } else {
-                    navigate("/dashboard");
-                }
-            }
-        } catch (err: any) {
-            console.error("Google Auth error:", err);
-            setError(err.message || "Google Authentication failed.");
-        }
-    };
-
-    const handleGoogleCompleteProfile = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError(null);
-        if (!googleUser) return;
-
-        setSignupLoading(true);
-        try {
-            const profileData = {
-                name: googleUser.displayName || signupForm.name || "Google User",
-                email: googleUser.email,
-                age: parseInt(signupForm.age),
-                weight: parseFloat(signupForm.weight) || 0,
-                height: parseFloat(signupForm.height) || 0,
-                gender: signupForm.gender,
-                role: role,
-                credentials: signupForm.credentials || "",
-                specialization: signupForm.specialization || ""
-            };
-
-            await setDoc(doc(db, "users", googleUser.uid), profileData);
-
-            login(profileData as any);
-            onClose();
-            
-            if (role === "doctor") {
-                navigate("/doctor/dashboard");
-            } else {
-                navigate("/dashboard");
-            }
-        } catch (err: any) {
-            console.error("Google Profile Completion Error:", err);
-            setError(err.message || "Failed to complete setup.");
-        } finally {
-            setSignupLoading(false);
-        }
-    };
-
-
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -297,11 +223,6 @@ const LoginModal = ({ isOpen, onClose, initialTab = "login" }: LoginModalProps) 
                                         required
                                     />
                                 </div>
-                                <div className="flex justify-end">
-                                    <button type="button" className="text-[10px] text-prism-sky hover:text-white transition-colors">
-                                        Forgot Password?
-                                    </button>
-                                </div>
                                 
                                 {error && (
                                     <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center font-semibold">
@@ -312,16 +233,6 @@ const LoginModal = ({ isOpen, onClose, initialTab = "login" }: LoginModalProps) 
                                 <Button type="submit" disabled={loginLoading} className="w-full bg-prism-sky hover:bg-prism-sky/90 text-white font-bold h-11 rounded-xl shadow-glow mt-2 transition-all active:scale-[0.98] flex items-center justify-center">
                                     {loginLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" /> : <LogIn className="w-4 h-4 mr-2" />}
                                     {loginLoading ? "Signing In..." : "Sign In"}
-                                </Button>
-
-                                <div className="relative flex items-center justify-center my-4">
-                                    <div className="border-t border-white/10 w-full" />
-                                    <span className="absolute bg-prism-navy/95 px-3 text-[10px] text-white/40 uppercase font-bold tracking-wider">or</span>
-                                </div>
-
-                                <Button type="button" onClick={handleGoogleSignIn} className="w-full bg-white/5 hover:bg-white/10 text-white border border-white/10 h-11 rounded-xl transition-all flex items-center justify-center gap-2">
-                                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
-                                    Continue with Google
                                 </Button>
                             </form>
                         </TabsContent>
@@ -406,16 +317,6 @@ const LoginModal = ({ isOpen, onClose, initialTab = "login" }: LoginModalProps) 
 
                                             <Button type="submit" className="w-full bg-accent-gradient text-white font-bold h-11 rounded-xl shadow-glow mt-2">
                                                 Next Step <LogIn className="w-4 h-4 ml-2" />
-                                            </Button>
-
-                                            <div className="relative flex items-center justify-center my-4">
-                                                <div className="border-t border-white/10 w-full" />
-                                                <span className="absolute bg-prism-navy/95 px-3 text-[10px] text-white/40 uppercase font-bold tracking-wider">or</span>
-                                            </div>
-
-                                            <Button type="button" onClick={handleGoogleSignIn} className="w-full bg-white/5 hover:bg-white/10 text-white border border-white/10 h-11 rounded-xl transition-all flex items-center justify-center gap-2">
-                                                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
-                                                Continue with Google
                                             </Button>
                                         </motion.div>
                                     ) : (
@@ -570,68 +471,6 @@ const LoginModal = ({ isOpen, onClose, initialTab = "login" }: LoginModalProps) 
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-                            </form>
-                        </TabsContent>
-
-                        <TabsContent value="google-setup" className="p-6 m-0 outline-none max-h-[60vh] overflow-y-auto custom-scrollbar text-white">
-                            <div className="text-center mb-4">
-                                <h3 className="font-display text-xl font-bold">Complete Setup</h3>
-                                <p className="text-white/60 text-xs">Hello {googleUser?.displayName || "there"}, provide your details to continue.</p>
-                            </div>
-
-                            <form onSubmit={handleGoogleCompleteProfile} className="space-y-4">
-                                <div className="pt-1">
-                                    <label className="text-[10px] uppercase font-bold text-white/50 mb-2 block text-center">I am a...</label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button type="button" onClick={() => setRole("patient")} className={`p-3 rounded-xl border flex flex-col items-center gap-1 ${role === "patient" ? "bg-prism-sky/20 border-prism-sky text-white shadow-glow" : "bg-white/5 border-white/10"}`}>
-                                            <User className="w-4 h-4" /> <span className="font-bold text-[10px]">Patient</span>
-                                        </button>
-                                        <button type="button" onClick={() => setRole("doctor")} className={`p-3 rounded-xl border flex flex-col items-center gap-1 ${role === "doctor" ? "bg-prism-glow/20 border-prism-glow text-white shadow-glow" : "bg-white/5 border-white/10"}`}>
-                                            <Stethoscope className="w-4 h-4" /> <span className="font-bold text-[10px]">Doctor</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {role === "patient" ? (
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1">
-                                            <label className="text-xs">Age</label>
-                                            <Input type="number" required value={signupForm.age} onChange={e => setSignupForm({ ...signupForm, age: e.target.value })} className="bg-white/10 border-white/10 h-10 rounded-xl" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs">Gender</label>
-                                            <select value={signupForm.gender} onChange={e => setSignupForm({ ...signupForm, gender: e.target.value })} className="h-10 w-full rounded-xl border border-white/10 bg-white/10 px-2 text-sm text-white">
-                                                <option value="male" className="bg-prism-navy">Male</option>
-                                                <option value="female" className="bg-prism-navy">Female</option>
-                                            </select>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs">Weight</label>
-                                            <Input type="number" required value={signupForm.weight} onChange={e => setSignupForm({ ...signupForm, weight: e.target.value })} className="bg-white/10 border-white/10 h-10 rounded-xl" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs">Height</label>
-                                            <Input type="number" required value={signupForm.height} onChange={e => setSignupForm({ ...signupForm, height: e.target.value })} className="bg-white/10 border-white/10 h-10 rounded-xl" />
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        <div className="space-y-1">
-                                            <label className="text-xs">Specialization</label>
-                                            <Input type="text" required value={signupForm.specialization} onChange={e => setSignupForm({ ...signupForm, specialization: e.target.value })} className="bg-white/10 border-white/10 h-10 rounded-xl" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs">Credentials</label>
-                                            <Input type="text" required value={signupForm.credentials} onChange={e => setSignupForm({ ...signupForm, credentials: e.target.value })} className="bg-white/10 border-white/10 h-10 rounded-xl" />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {error && <div className="p-2 text-red-400 text-xs text-center">{error}</div>}
-
-                                <Button type="submit" disabled={signupLoading} className={`w-full text-white font-bold h-11 rounded-xl shadow-glow ${role === 'doctor' ? 'bg-gradient-to-r from-prism-glow to-amber-500' : 'bg-prism-sky'}`}>
-                                    {signupLoading ? "Completing..." : "Launch Profile"}
-                                </Button>
                             </form>
                         </TabsContent>
                     </Tabs>

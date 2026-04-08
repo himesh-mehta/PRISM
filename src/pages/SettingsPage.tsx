@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Save, User, Bell, Shield, Palette, Info, CheckCircle2, Activity, MessageCircle, Loader2 } from "lucide-react";
-import { auth } from "@/lib/firebase";
+import { Save, User, Bell, Shield, Palette, Info, CheckCircle2, Activity, Loader2 } from "lucide-react";
 
 const SettingsPage = () => {
   const { user, login } = useAuth();
@@ -17,8 +16,6 @@ const SettingsPage = () => {
     gender: user?.gender || "male",
   });
   const [saved, setSaved] = useState(false);
-  const [chats, setChats] = useState<any[]>([]);
-  const [loadingChats, setLoadingChats] = useState(false);
 
   const handleSave = () => {
     login({
@@ -45,31 +42,9 @@ const SettingsPage = () => {
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "privacy", label: "Privacy", icon: Shield },
     { id: "appearance", label: "Appearance", icon: Palette },
-    { id: "chathistory", label: "Chat History", icon: MessageCircle },
     { id: "about", label: "About", icon: Info },
   ];
   const [activeTab, setActiveTab] = useState("profile");
-
-  useEffect(() => {
-    if (activeTab === "chathistory") {
-      const fetchChats = async () => {
-        setLoadingChats(true);
-        try {
-          const token = await auth.currentUser?.getIdToken();
-          const res = await fetch("http://localhost:4000/api/chats", {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const json = await res.json();
-          setChats(json.data || []);
-        } catch (e) {
-          console.error("Fetch chats error:", e);
-        } finally {
-          setLoadingChats(false);
-        }
-      };
-      fetchChats();
-    }
-  }, [activeTab]);
 
   return (
     <div className="space-y-10 animate-fade-in max-w-5xl mx-auto">
@@ -282,49 +257,6 @@ const SettingsPage = () => {
                 <p className="text-sm font-bold text-primary">Theme synchronization is now live across all your devices.</p>
               </div>
             </div>
-          </motion.div>
-        )}
-
-        {activeTab === "chathistory" && (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-glass border-white/20 dark:border-white/5 rounded-3xl p-8 shadow-elevated"
-          >
-            <h3 className="text-2xl font-display font-bold text-foreground mb-8">Chat History</h3>
-            
-            {loadingChats ? (
-              <div className="flex items-center justify-center py-24 text-muted-foreground gap-2">
-                <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                <span className="font-bold">Loading conversation archives...</span>
-              </div>
-            ) : chats.length === 0 ? (
-              <div className="text-center py-24 text-muted-foreground">
-                <p className="font-bold text-lg text-foreground">No chat history found!</p>
-                <p className="text-xs mt-1">Start chatting with your Assistant to back up sessions.</p>
-              </div>
-            ) : (
-              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
-                {chats.map((chat, idx) => (
-                  <div key={idx} className={`p-4 rounded-2xl border ${chat.role === "user" ? "bg-secondary/20 border-white/5" : "bg-primary/10 border-primary/20"}`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${chat.role === "user" ? "bg-muted text-foreground" : "bg-accent-gradient text-accent-foreground"}`}>
-                        {chat.role === "user" ? <User className="w-3.5 h-3.5" /> : <Activity className="w-3.5 h-3.5" />}
-                      </div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground font-display">
-                        {chat.role === "user" ? "You" : "Prism AI"}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground/60 ml-auto font-medium">
-                        {new Date(chat.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <p className="text-sm text-foreground/90 leading-relaxed font-medium">
-                      {chat.text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
           </motion.div>
         )}
 
