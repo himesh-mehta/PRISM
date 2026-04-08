@@ -22,6 +22,11 @@ export default defineConfig(({ mode }) => ({
         target: 'http://localhost:5001',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api-exercise/, ''),
+      },
+      '/api': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '/api'),
       }
     }
   },

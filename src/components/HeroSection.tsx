@@ -41,8 +41,8 @@ const HeroSection = ({ onLoginClick, onJoinClick }: HeroSectionProps) => {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="font-display text-4xl md:text-6xl lg:text-7xl font-black text-white leading-[1.1] mb-8 tracking-tight"
             >
-              Your Recovery, <br />
-              <span className="text-gradient-hero">Reimagined</span>
+              Recover smarter, <br />
+              <span className="text-gradient-hero">not harder.</span>
             </motion.h1>
 
             <motion.p
