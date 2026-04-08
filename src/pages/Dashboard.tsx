@@ -132,6 +132,52 @@ const Dashboard = () => {
   const totalCount = exercises.length;
   const progressPercent = Math.round((completedCount / totalCount) * 100);
 
+  const handleExportPDF = async () => {
+    try {
+      const element = document.getElementById("dashboard-container");
+      if (!element) return;
+      toast.info("Generating PDF summary...");
+      const canvas = await html2canvas(element, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save("Dashboard_Report.pdf");
+      toast.success("PDF Downloaded successfully");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to generate PDF");
+    }
+  };
+
+  const handleExportExcel = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+      
+      const wsWeekly = XLSX.utils.json_to_sheet(weeklyData);
+      XLSX.utils.book_append_sheet(wb, wsWeekly, "Weekly Activity");
+
+      const wsTimeline = XLSX.utils.json_to_sheet(timelineData.map(t => ({ Week: t.week, 'Pain/10': t.pain, 'Form %': t.form })));
+      XLSX.utils.book_append_sheet(wb, wsTimeline, "Recovery Timeline");
+
+      const wsExercises = XLSX.utils.json_to_sheet(todayExercises.map(e => ({ Exercise: e.name, Type: e.type, Duration: e.duration, Status: e.status })));
+      XLSX.utils.book_append_sheet(wb, wsExercises, "Today Exercises");
+
+      const wsMetrics = XLSX.utils.json_to_sheet(metrics.map(m => ({ Metric: m.label, Value: m.value, Trend: m.trend })));
+      XLSX.utils.book_append_sheet(wb, wsMetrics, "Core Metrics");
+
+      const wsInsights = XLSX.utils.json_to_sheet(insights.map(i => ({ Insight: i.text, Status: i.type, Risk: i.risk })));
+      XLSX.utils.book_append_sheet(wb, wsInsights, "AI Insights");
+
+      XLSX.writeFile(wb, "Dashboard_Report.xlsx");
+      toast.success("Excel Downloaded successfully");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to generate Excel");
+    }
+  };
+
   return (
     <motion.div
       initial="hidden"
