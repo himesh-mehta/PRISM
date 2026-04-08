@@ -23,7 +23,7 @@ app = Flask(__name__)
 POSE_MODEL     = 'pose_landmarker_heavy.task'   # most accurate
 PREP_S         = 3
 CAP_S          = 5
-TARGET_FPS     = 60
+TARGET_FPS     = 24
 FRAME_INTERVAL = 1.0 / TARGET_FPS
 ZOOM_SCALE     = 1.0   # 1.0=no zoom (fills up screen flawlessly with object-fit)
 
@@ -392,6 +392,12 @@ class PostureApp:
         self._last_frame_t= 0.0
         self.paused       = False
         self._pause_start_t = 0.0
+        # Pre-load model at startup so Start Detection is instant
+        try:
+            self._load_model()
+            print('[OK] Posture model pre-loaded at startup')
+        except Exception as e:
+            print(f'[WARN] Posture model pre-load failed: {e}')
 
     def _load_model(self):
         import os
@@ -413,21 +419,23 @@ class PostureApp:
         print('[OK] Pose landmarker (heavy) loaded — 33 points')
 
     def start_camera(self):
-        # Professional fallback search
-        for idx in [0, 1]:
-            self.cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
-            if self.cap.isOpened(): break
+        # DirectShow avoids 6-second Windows MSMF hang
+        self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         if not self.cap or not self.cap.isOpened():
             self.cap = cv2.VideoCapture(0)
 
-        if not self.cap.isOpened(): return False,'Cannot open webcam'
+        if not self.cap or not self.cap.isOpened(): return False,'Cannot open webcam'
+        # BUFFERSIZE=1: eliminates accumulated frame lag
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT,  480)
         self.cap.set(cv2.CAP_PROP_FPS, 30)
-        try:
-            self._load_model()
-        except Exception as e:
-            return False, str(e)
+        # Model already loaded at startup — no delay here
+        if not self.pose_lmk:
+            try:
+                self._load_model()
+            except Exception as e:
+                return False, str(e)
         with self._lock: self.state='cam_ready'
         return True,'ok'
 
@@ -470,6 +478,7 @@ class PostureApp:
 
     # ── FIXED gen_frames ──────────────────────────────────────────────
     def gen_frames(self):
+        frame_count = 0
         while True:
             # Camera not open — send placeholder
             if not self.cap or not self.cap.isOpened():
@@ -490,6 +499,8 @@ class PostureApp:
                 time.sleep(0.1)
                 continue
 
+            frame_count += 1
+
             # FPS throttle — sleep so stream NEVER yields nothing
             now=time.time()
             elapsed=now-self._last_frame_t
@@ -504,15 +515,19 @@ class PostureApp:
                 self.ts_ms+=int(FRAME_INTERVAL*1000)
 
                 lms=None
-                if self.pose_lmk:
+                # AI SPEED OPTIMIZATION: Only detect every 3rd frame
+                if self.pose_lmk and (frame_count % 3 == 0):
                     try:
                         rgb=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
                         mp_img=mp.Image(image_format=mp.ImageFormat.SRGB,data=rgb)
                         r=self.pose_lmk.detect_for_video(mp_img,int(self.ts_ms))
                         if r.pose_landmarks:
                             lms=r.pose_landmarks[0]
+                            self._last_lms = lms
                     except Exception:
                         pass
+                else:
+                    lms = getattr(self, '_last_lms', None)
 
                 with self._lock:
                     cur=self.state; vidx=self.view_idx; ps=self.phase_start
@@ -531,7 +546,7 @@ class PostureApp:
             except Exception:
                 pass  # never let a frame error kill the stream
 
-            _,buf=cv2.imencode('.jpg',frame,[cv2.IMWRITE_JPEG_QUALITY,82])
+            _,buf=cv2.imencode('.jpg',frame,[cv2.IMWRITE_JPEG_QUALITY,50])
             yield b'--frame\r\nContent-Type: image/jpeg\r\n\r\n'+buf.tobytes()+b'\r\n'
 
     def state_dict(self):
@@ -614,7 +629,7 @@ if __name__=='__main__':
     print('\n'+'='*55)
     print('  Posture Detection — 33-point skeleton')
     print('='*55)
-    status='✓ Found' if os.path.exists(POSE_MODEL) else '⚠ MISSING'
+    status = 'Found' if os.path.exists(POSE_MODEL) else 'MISSING'
     print(f'  {status}: {POSE_MODEL}')
     if not os.path.exists(POSE_MODEL):
         print('\n  Download command:')
