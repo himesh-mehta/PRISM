@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   Activity, ScanEye, Library, BarChart3, TrendingUp, Clock, Target, Heart, Brain,
   AlertTriangle, CheckCircle2, ArrowUpRight, Zap, CalendarDays, User2, MessageCircle,
-  Play, FileText, Smartphone, Plus, Award, Info, Bot
+  Play, FileText, Smartphone, Plus, Award, Info, Bot, Table, Download
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import SparklineChart from "@/components/SparklineChart";
@@ -11,6 +11,10 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { useState } from "react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 const weeklyData = [
   { day: "Mon", pain: 4, accuracy: 72, sessions: 2 },
@@ -67,11 +71,57 @@ const Dashboard = () => {
   const insights = [
     { icon: TrendingUp, text: "Posture improved 12% this week.", type: "positive", risk: "Low Risk" },
     { icon: AlertTriangle, text: "Left shoulder imbalance detected 2 times.", type: "warning", risk: "Medium Risk" },
-    { icon: Info, text: "You tend to fatigue after 15 minutes.", type: "neutral", risk: "General Tip" },
+    { icon: Info, text: "You tend to fatigue after 15 minutes.", type: "neutral", risk: "General Risk" },
   ];
 
+  const handleExportPDF = async () => {
+    try {
+      const element = document.getElementById("dashboard-container");
+      if (!element) return;
+      toast.info("Generating PDF summary...");
+      const canvas = await html2canvas(element, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save("Dashboard_Report.pdf");
+      toast.success("PDF Downloaded successfully");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to generate PDF");
+    }
+  };
+
+  const handleExportExcel = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+      
+      const wsWeekly = XLSX.utils.json_to_sheet(weeklyData);
+      XLSX.utils.book_append_sheet(wb, wsWeekly, "Weekly Activity");
+
+      const wsTimeline = XLSX.utils.json_to_sheet(timelineData.map(t => ({ Week: t.week, 'Pain/10': t.pain, 'Form %': t.form })));
+      XLSX.utils.book_append_sheet(wb, wsTimeline, "Recovery Timeline");
+
+      const wsExercises = XLSX.utils.json_to_sheet(todayExercises.map(e => ({ Exercise: e.name, Type: e.type, Duration: e.duration, Status: e.status })));
+      XLSX.utils.book_append_sheet(wb, wsExercises, "Today Exercises");
+
+      const wsMetrics = XLSX.utils.json_to_sheet(metrics.map(m => ({ Metric: m.label, Value: m.value, Trend: m.trend })));
+      XLSX.utils.book_append_sheet(wb, wsMetrics, "Core Metrics");
+
+      const wsInsights = XLSX.utils.json_to_sheet(insights.map(i => ({ Insight: i.text, Status: i.type, Risk: i.risk })));
+      XLSX.utils.book_append_sheet(wb, wsInsights, "AI Insights");
+
+      XLSX.writeFile(wb, "Dashboard_Report.xlsx");
+      toast.success("Excel Downloaded successfully");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to generate Excel");
+    }
+  };
+
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-8 pb-12">
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-8 pb-12" id="dashboard-container">
       
       {/* 1. Top Section — Welcome + Today Recovery Plan */}
       <motion.div variants={item} className="bg-gradient-to-r from-[#1e40af] via-[#3730a3] to-[#6d28d9] rounded-3xl p-8 text-white relative overflow-hidden shadow-2xl border border-white/10">
@@ -96,6 +146,12 @@ const Dashboard = () => {
               </Button>
               <Button size="lg" variant="outline" className="bg-white/5 border-white/20 hover:bg-white/10 text-white rounded-2xl px-6 active:scale-95 transition-all">
                 View Plan
+              </Button>
+              <Button size="icon" variant="outline" onClick={handleExportPDF} className="bg-white/5 border-white/20 hover:bg-white/10 text-white rounded-2xl w-11 h-11" title="Export as PDF">
+                <FileText className="w-4 h-4" />
+              </Button>
+              <Button size="icon" variant="outline" onClick={handleExportExcel} className="bg-white/5 border-white/20 hover:bg-white/10 text-white rounded-2xl w-11 h-11" title="Export as Excel">
+                <Table className="w-4 h-4" />
               </Button>
             </div>
           </div>
