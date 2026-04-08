@@ -1,7 +1,12 @@
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
-import { Activity, Heart, Target, Flame, TrendingUp, Award, Calendar, Clock } from "lucide-react";
+import { Activity, Heart, Target, Flame, TrendingUp, Award, Calendar, Clock, FileText, Table } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 const weeklyData = [
   { day: "Mon", sessions: 2, reps: 45, calories: 120 },
@@ -41,6 +46,27 @@ const bodyPartData = [
 const Reports = () => {
   const { user } = useAuth();
 
+  const handleExportPDF = async () => {
+    try {
+      const element = document.getElementById("reports-container");
+      if (!element) return;
+      
+      toast.info("Generating PDF summary...");
+      const canvas = await html2canvas(element, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save("Recovery_Report.pdf");
+      toast.success("PDF Downloaded successfully");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to generate PDF");
+    }
+  };
+
   const summaryCards = [
     { label: "Total Sessions", value: "42", icon: Activity, trend: "+12%", color: "text-primary" },
     { label: "Exercises Done", value: "312", icon: Target, trend: "+18%", color: "text-accent" },
@@ -50,12 +76,62 @@ const Reports = () => {
     { label: "Hours Trained", value: "18.5h", icon: Clock, trend: "+5h", color: "text-purple-500" },
   ];
 
+  const handleExportExcel = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+      
+      const wsWeekly = XLSX.utils.json_to_sheet(weeklyData);
+      XLSX.utils.book_append_sheet(wb, wsWeekly, "Weekly Activity");
+      
+      const wsProgress = XLSX.utils.json_to_sheet(progressData);
+      XLSX.utils.book_append_sheet(wb, wsProgress, "Progress");
+      
+      const wsMonthly = XLSX.utils.json_to_sheet(monthlyData);
+      XLSX.utils.book_append_sheet(wb, wsMonthly, "Monthly Sessions");
+
+      const wsDistribution = XLSX.utils.json_to_sheet(bodyPartData.map(d => ({ 'Body Part': d.name, 'Percentage': d.value })));
+      XLSX.utils.book_append_sheet(wb, wsDistribution, "Exercise Distribution");
+
+      const summaryData = summaryCards.map(c => ({ 'Metric': c.label, 'Value': c.value, 'Trend': c.trend }));
+      const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Summary Stats");
+
+      const healthProfileData = [
+        { Metric: "BMI", Value: user?.bmi },
+        { Metric: "Recovery Score", Value: 78 },
+        { Metric: "Flexibility", Value: 65 },
+        { Metric: "Strength", Value: 72 },
+        { Metric: "Endurance", Value: 60 },
+      ];
+      const wsHealth = XLSX.utils.json_to_sheet(healthProfileData);
+      XLSX.utils.book_append_sheet(wb, wsHealth, "Health Profile");
+      
+      XLSX.writeFile(wb, "Recovery_Report.xlsx");
+      toast.success("Excel Downloaded successfully");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to generate Excel");
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="font-display text-3xl font-bold text-foreground">Reports & Analytics</h1>
-        <p className="text-muted-foreground mt-1">Track your recovery progress over time</p>
-      </motion.div>
+    <div className="space-y-6" id="reports-container">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <h1 className="font-display text-3xl font-bold text-foreground">Reports & Analytics</h1>
+          <p className="text-muted-foreground mt-1">Track your recovery progress over time</p>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3">
+          <Button onClick={handleExportExcel} variant="outline" className="border-prism-blue/30 hover:bg-prism-blue/10 transition-all font-bold group">
+            <Table className="w-4 h-4 mr-2 text-prism-sky group-hover:scale-110 transition-transform" />
+            Export Excel
+          </Button>
+          <Button onClick={handleExportPDF} className="bg-prism-blue text-white hover:bg-prism-navy transition-all font-bold shadow-glow group">
+            <FileText className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+            Export PDF
+          </Button>
+        </motion.div>
+      </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -147,7 +223,7 @@ const Reports = () => {
                   <span className="font-medium text-foreground">{item.value}</span>
                 </div>
                 <div className="w-full bg-secondary rounded-full h-2">
-                  <motion.div className="bg-primary rounded-full h-2" initial={{ width: 0 }} animate={{ width: `${((item.value || 0) / item.max) * 100}%` }} transition={{ duration: 1 }} />
+                  <motion.div className="bg-primary rounded-full h-2" initial={{ width: 0 }} animate={{ width: `${Math.min(100, ((item.value || 0) / item.max) * 100)}%` }} transition={{ duration: 1 }} />
                 </div>
               </div>
             ))}
