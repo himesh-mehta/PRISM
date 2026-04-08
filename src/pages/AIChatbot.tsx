@@ -10,7 +10,6 @@ import { exercises } from "@/data/exercises";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ExerciseModelViewer from "@/components/ExerciseModelViewer";
 import ReactMarkdown from "react-markdown";
-import { auth } from "@/lib/firebase"; // Required for ID tokens
 import { useAuth } from "@/contexts/AuthContext";
 
 
@@ -143,59 +142,11 @@ const AIChatbot = () => {
     scrollToBottom();
   }, [messages, isLoading]);
 
-  // Load chats from Neon on Load
-  useEffect(() => {
-    const fetchChatsFromNeon = async () => {
-      try {
-        const token = await auth.currentUser?.getIdToken();
-        if (!token) return;
-
-        const res = await fetch("http://localhost:4000/api/chats", {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        const json = await res.json();
-        if (json.success && json.data.length > 0) {
-            setMessages([
-              { role: "assistant", text: "Hello! I'm Prism AI, your physiotherapy assistant. Ask me about exercises, posture, nutrition, or any body part you need help with. 🏥" },
-              ...json.data.map((d: any) => ({
-                role: d.role,
-                text: d.text,
-                recommendations: d.recommendations
-              }))
-            ]);
-        }
-      } catch (e) {
-         console.error("Fetch chats error:", e);
-      }
-    };
-    fetchChatsFromNeon();
-  }, [user]);
-
   const handleNewChat = () => {
     setMessages([
       { role: "assistant", text: "Hello! I'm Prism AI, your physiotherapy assistant. Ask me about exercises, posture, nutrition, or any body part you need help with. 🏥" }
     ]);
     toast.success("New chat started!");
-  };
-
-  const saveChatToNeon = async (role: string, text: string, recommendations?: any) => {
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) return;
-
-      await fetch("http://localhost:4000/api/chats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token,
-          role,
-          text,
-          recommendations
-        })
-      });
-    } catch (e) {
-      console.error("Save chat error:", e);
-    }
   };
 
   const send = async (text?: string) => {
@@ -226,17 +177,14 @@ const AIChatbot = () => {
     setAttachments([]);
     setIsLoading(true);
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Please log in to chat.");
-
       const response = await fetch("http://localhost:4000/api/chats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          token,
           role: "user",
           text: finalMsg,
-          language: selectedLanguage.label
+          language: selectedLanguage.label,
+          history: messages // Pass active chat history to backend
         })
       });
 
@@ -406,20 +354,6 @@ const AIChatbot = () => {
           </div>
 
           <div className="p-4 bg-card/50">
-            <input type="file" ref={fileInputRef} className="hidden" multiple onChange={handleFileSelect} />
-            
-            {attachments.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 px-4 mb-2 max-w-[85%] mx-auto">
-                {attachments.map((f, idx) => (
-                  <div key={idx} className="flex items-center gap-1 px-2 py-1 bg-secondary text-foreground text-xs rounded-full border border-border/40">
-                    <FileUp className="w-3 h-3 text-primary" />
-                    <span className="truncate max-w-[100px]">{f.name}</span>
-                    <button type="button" onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive ml-1">×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-
             <form onSubmit={e => { e.preventDefault(); send(); }} className="flex gap-2 max-w-[85%] mx-auto items-center">
               <div className="flex items-center bg-slate-200 dark:bg-secondary rounded-full px-4 py-1 flex-1 shadow-sm border border-border/80 gap-2">
                 <DropdownMenu>
@@ -494,7 +428,6 @@ const AIChatbot = () => {
         </div>
         <div className="flex-1 relative w-full h-full bg-slate-100 dark:bg-slate-900/10">
           <ExerciseModelViewer models={[currentModel]} />
-          
         </div>
       </div>
     </div>

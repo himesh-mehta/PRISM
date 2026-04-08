@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
-    "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -54,8 +53,6 @@
     "dotenv": "^17.3.1",
     "embla-carousel-react": "^8.6.0",
     "express": "^5.2.1",
-    "firebase": "^12.11.0",
-    "firebase-admin": "^13.7.0",
     "framer-motion": "^12.34.0",
     "groq-sdk": "^1.1.1",
     "html2canvas": "^1.4.1",

@@ -1,7 +1,4 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { auth, db } from "@/lib/firebase";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
 
 export interface UserProfile {
   name: string;
@@ -20,6 +17,7 @@ export interface UserProfile {
 interface AuthContextType {
   user: UserProfile | null;
   login: (profile: UserProfile) => void;
+  signup: (profile: UserProfile) => void;
   logout: () => void;
   isAuthenticated: boolean;
   loading: boolean;
@@ -28,6 +26,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   login: () => { },
+  signup: () => { },
   logout: () => { },
   isAuthenticated: false,
   loading: true,
@@ -36,6 +35,7 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 function calculateBMI(weight: number, height: number): number {
+  if (!weight || !height) return 0;
   const heightM = height / 100;
   return parseFloat((weight / (heightM * heightM)).toFixed(1));
 }
@@ -52,60 +52,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          const docRef = doc(db, "users", firebaseUser.uid);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            const bmi = data.weight && data.height ? calculateBMI(data.weight, data.height) : 0;
-            
-            setUser({
-              ...data,
-              bmi,
-              bodyType: getBodyType(bmi),
-            } as UserProfile);
-          } else {
-            console.warn("No user profile found in Firestore for:", firebaseUser.uid);
-            setUser(null);
-          }
-        } catch (error) {
-          console.error("Error fetching user profile from Firestore:", error);
-          setUser(null);
-        }
-      } else {
-        setUser(null);
+    // Check localStorage for an existing user
+    const savedUser = localStorage.getItem("prism_user");
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error("Failed to parse saved user", e);
       }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    }
+    setLoading(false);
   }, []);
 
-  const login = (profile: Omit<UserProfile, "bmi" | "bodyType"> & { bmi?: number; bodyType?: string; role?: "patient" | "doctor" }) => {
-    // Left for fallback or immediate local state updates before socket trigger resolves
+  const login = (profile: UserProfile) => {
     const bmi = calculateBMI(profile.weight, profile.height);
-    const fullProfile: UserProfile = {
+    const fullProfile = {
       ...profile,
       bmi,
       bodyType: getBodyType(bmi),
-      role: profile.role || "patient",
     };
     setUser(fullProfile);
+    localStorage.setItem("prism_user", JSON.stringify(fullProfile));
   };
 
-  const logout = async () => {
-    try {
-      await signOut(auth);
-      setUser(null);
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
+  const signup = (profile: UserProfile) => {
+    login(profile);
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem("prism_user");
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, loading }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, isAuthenticated: !!user, loading }}>
       {children}
     </AuthContext.Provider>
   );
