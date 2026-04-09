@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Camera, CameraOff, Play, Pause, RotateCcw, Timer, Award, Activity, Sparkles, Eye, Ruler, Lightbulb, Shirt } from "lucide-react";
+import { Camera, CameraOff, Play, Pause, RotateCcw, Timer, Award, Activity, Sparkles, Eye, Ruler, Lightbulb, Shirt, X } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
+import { toast } from "sonner";
 
 /* ── Exercise data ──────────────────────────────────────────────────────── */
 const EX_LABELS: Record<string, string> = {
@@ -132,8 +135,38 @@ export default function ExerciseTracker() {
 
   useEffect(() => {
     if (cameraOn) startPolling();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [cameraOn]);
+    
+    // Global ESC key listener to end full screen
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && tracking) {
+        handleStopEx();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && tracking) {
+        handleStopEx();
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    return () => { 
+      if (pollRef.current) clearInterval(pollRef.current); 
+      window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, [cameraOn, tracking]);
+
+  // Dedicated unmount cleanup to avoid race conditions with cameraOn state
+  useEffect(() => {
+    return () => {
+      fetch("/api-exercise/stop_camera", { method: "POST" }).catch(() => {});
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+  }, []);
 
   function startPolling() {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -176,7 +209,7 @@ export default function ExerciseTracker() {
     if (s.form_score !== undefined) setFormScore(s.form_score);
     if (s.feedback) setFeedback(s.feedback);
 
-    if (tracking && !s.is_yoga) {
+    if (tracking && !s.is_yoga && cameraOn) {
       if (s.speed_status === "too_fast" || (s.form_score !== undefined && s.form_score < 40)) {
         const now = Date.now();
         if (now - lastAlarmRef.current > 800) {
@@ -208,11 +241,21 @@ export default function ExerciseTracker() {
   async function handleStartEx() {
     await fetch("/api-exercise/start_exercise", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ exercise: currentEx }) });
     setTracking(true); setStateBadge(isYogaEx ? "yoga" : "tracking");
+    // Mirror Posture AI: Request Native Fullscreen
+    document.documentElement.requestFullscreen?.().catch(() => {});
   }
 
   async function handleStopEx() {
-    await fetch("/api-exercise/stop_exercise", { method: "POST" });
+    try {
+      await fetch("/api-exercise/stop_exercise", { method: "POST" });
+    } catch (e) {}
     setTracking(false); setStateBadge("stopped");
+    // Mirror Posture AI: Exit Native Fullscreen
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    // Automatically turn off camera when exercise is stopped or paused
+    await handleStopCam();
   }
 
   async function handleReset() {
@@ -227,10 +270,7 @@ export default function ExerciseTracker() {
     setCamBtnDisabled(false); setCamBtnText("Start Camera");
   }
 
-  const CIRC = 264;
-  const timerOffset = CIRC * (1 - Math.min(holdElapsed / Math.max(holdTarget, 1), 1));
   const filterCat = CATEGORIES.find(c => c.id === activeCat)!;
-  const badgeLabel = { ready: "Ready", tracking: "Tracking", yoga: "Holding", stopped: "Stopped" }[stateBadge];
 
   return (
     <div className={`space-y-6 pb-12 transition-colors duration-300 ${alarmActive ? "bg-red-950/20" : ""}`}>
@@ -285,68 +325,120 @@ export default function ExerciseTracker() {
         })}
       </motion.div>
 
-      {/* 5. Main View area layout grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        
-        <div className="lg:col-span-2 space-y-4">
-          <div className={`relative bg-black rounded-3xl overflow-hidden border border-border/40 aspect-video flex items-center justify-center shadow-elevated ${alarmActive ? "ring-4 ring-red-500 ring-offset-2" : ""}`}>
-             {!cameraOn ? (
-                <div className="flex flex-col items-center text-center p-6 gap-3">
-                  <div className="p-4 rounded-full bg-slate-900 border border-slate-800"> <Camera className="w-8 h-8 text-muted-foreground" /> </div>
-                  <div>
-                    <h3 className="font-bold text-base text-white">Device Standby</h3>
-                    <p className="text-xs text-slate-500 mt-1">Activate camera tracking</p>
-                  </div>
-                </div>
-             ) : (
-                <img src={`/api-exercise/video_feed?t=${videoKey}`} alt="Feed" className="w-full h-full object-cover" />
-             )}
-             <div className="absolute top-4 right-4">
-                {cameraOn && ( <Button size="sm" variant="destructive" className="rounded-xl font-bold text-xs" onClick={handleStopCam}> <CameraOff className="w-3.5 h-3.5 mr-1" /> Close </Button> )}
-             </div>
-          </div>
-
-          <div className="flex justify-center bg-card/60 backdrop-blur p-3 rounded-2xl border border-border/60 gap-3">
-             {!cameraOn ? (
-                <Button size="lg" disabled={camBtnDisabled} className="bg-primary hover:bg-primary/90 text-white font-black rounded-2xl px-8 flex items-center gap-1.5" onClick={handleStartCam}> <Camera className="w-5 h-5" /> Start Camera </Button>
-             ) : !tracking ? (
-                <Button size="lg" className="bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl px-8 flex items-center gap-1.5" onClick={handleStartEx}> <Play className="w-4 h-4 fill-white" /> Start </Button>
-             ) : (
-                <Button size="lg" className="bg-amber-600 hover:bg-amber-500 text-white font-black rounded-2xl px-8 flex items-center gap-1.5" onClick={handleStopEx}> <Pause className="w-4 h-4" /> Pause </Button>
-             )}
-             {cameraOn && ( <Button size="icon" variant="outline" className="rounded-xl" onClick={handleReset}> <RotateCcw className="w-4 h-4" /> </Button> )}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="bg-card rounded-2xl p-5 border border-border shadow-elevated flex flex-col justify-between h-48 relative overflow-hidden">
-             <div className="absolute top-[-20px] right-[-20px] w-28 h-28 bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-2xl" />
-             <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-black tracking-wider text-muted-foreground uppercase">{EX_LABELS[currentEx]}</span>
-                <div className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase font-black ${stateBadge==='tracking'?'bg-emerald-50 text-emerald-600':stateBadge==='yoga'?'bg-amber-50 text-amber-600':'bg-secondary text-muted-foreground'}`}>{badgeLabel}</div>
-             </div>
-             <div className="flex-1 flex items-center justify-center">
-                {!isYogaEx ? ( <div className="text-center"> <h1 className="text-6xl font-black text-foreground tracking-tight">{repCount}</h1> <span className="text-[10px] text-muted-foreground uppercase font-bold">Total Reps</span> </div>
-                ) : ( <div className="relative w-24 h-24 flex items-center justify-center"> <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90"> <circle cx="50" cy="50" r="42" fill="transparent" stroke="currentColor" strokeWidth="8" className="text-secondary" /> <circle cx="50" cy="50" r="42" fill="transparent" stroke="#f59e0b" strokeWidth="8" strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={timerOffset} className="transition-all duration-300" /> </svg> <div className="absolute inset-0 flex flex-col items-center justify-center"> <span className="text-2xl font-black text-foreground">{Math.floor(holdElapsed)}</span> <span className="text-[9px] text-muted-foreground font-bold">SEC</span> </div> </div> )}
-             </div>
-             <div>
-                <div className="flex justify-between text-[11px] font-bold mb-1"> <span className="text-muted-foreground">Form Score</span> <span className={formScore>75?'text-emerald-500':formScore>50?'text-amber-500':'text-red-500'}>{formScore}%</span> </div>
-                <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden"> <div className={`h-full rounded-full transition-all duration-300 ${formScore>75?'bg-emerald-500':formScore>50?'bg-amber-500':'bg-red-500'}`} style={{ width: `${formScore}%` }} /> </div>
-             </div>
-          </div>
-
-          <div className="p-3 bg-slate-900 border border-border/60 rounded-xl text-xs flex items-center gap-2 text-white/90"> <div className="w-2 h-2 rounded-full bg-primary animate-pulse" /> {feedback} </div>
-
-          <div className="grid grid-cols-2 gap-3">
-             {[ { label: isYogaEx ? "Hold Time" : "Joint Angle", value: angle, icon: Sparkles, color: "text-foreground" }, { label: "Rep Speed", value: speed, icon: Activity, color: speedColor }, { label: isYogaEx ? "Hold Target" : "Avg time", value: avgTime, icon: Timer, color: "text-foreground" }, { label: "Form State", value: statusTxt, icon: Award, color: statusColor } ].map(m => (
-                <div key={m.label} className="bg-card rounded-2xl p-4 border border-border shadow-sm"> <div className="flex items-center gap-1.5 mb-1.5 text-muted-foreground"> <m.icon className="w-3.5 h-3.5" /> <span className="text-[10px] font-bold uppercase">{m.label}</span> </div> <p className={`font-black text-sm ${m.color}`}>{m.value}</p> </div>
-             ))}
-          </div>
-
-          <div className="bg-card rounded-2xl p-4 border border-border"> <h3 className="font-bold text-xs text-foreground mb-3 flex items-center gap-1.5 uppercase"><Eye className="w-3.5 h-3.5 text-primary" /> Guide</h3> <div className="space-y-1.5"> {guides.map((step, i) => ( <div key={i} className="flex gap-2 items-start text-[11px] text-muted-foreground leading-relaxed"> <span className="font-black text-primary">•</span> <span>{step}</span> </div> ))} </div> f</div>
-        </div>
-
+      {/* Launch Zone */}
+      <div className="flex justify-center bg-card/60 backdrop-blur-xl p-6 rounded-3xl border border-border/60 shadow-xl mt-8">
+         {!cameraOn ? (
+            <Button size="lg" disabled={camBtnDisabled} className="bg-primary hover:bg-primary/90 text-white font-black rounded-2xl px-12 h-16 text-lg flex items-center gap-2 shadow-2xl shadow-primary/30" onClick={handleStartCam}> <Camera className="w-6 h-6" /> Start Session </Button>
+         ) : (
+            <div className="flex items-center gap-4">
+               <Button size="lg" className="bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl px-12 h-16 text-lg flex items-center gap-2 shadow-2xl shadow-emerald-500/30" onClick={handleStartEx}> <Play className="w-5 h-5 fill-white" /> Start Exercise </Button>
+               <Button size="icon" variant="outline" className="rounded-2xl w-16 h-16 border-2" onClick={handleStopCam}> <CameraOff className="w-6 h-6" /> </Button>
+            </div>
+         )}
       </div>
+
+      {/* ── FOCUS MODAL OVERLAY (PORTAL TO BODY TO OVERRIDE ALL) ─────── */}
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {tracking && (
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100000] bg-[#0b1120] p-0 m-0 w-screen h-screen overflow-hidden flex flex-col lg:flex-row items-stretch"
+            >
+              {/* Top Close Button */}
+              <motion.button 
+                initial={{ y: -20, opacity: 0 }} 
+                animate={{ y: 0, opacity: 1 }} 
+                onClick={handleStopEx}
+                className="absolute top-8 right-8 p-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded-full border border-white/10 transition-all z-[101]"
+                title="Close (Esc)"
+              >
+                <X className="w-6 h-6" />
+              </motion.button>
+
+              {/* Main Video View (Force Fill) */}
+              <div className="relative flex-1 bg-black overflow-hidden h-full flex items-center justify-center">
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={`relative w-full h-full ${alarmActive ? "ring-inset ring-8 ring-red-500" : ""}`}
+                >
+                  <img src={`/api-exercise/video_feed?t=${videoKey}`} alt="Live Feed" className="w-full h-full object-cover" />
+                  
+                  {/* HUD Overlay Labels */}
+                  <div className="absolute top-10 left-10 flex items-center gap-2 bg-black/40 backdrop-blur-md px-5 py-2.5 rounded-full border border-white/10">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[11px] font-black text-white/90 uppercase tracking-[0.2em]">AI ANALYSIS LIVE</span>
+                  </div>
+
+                  <div className="absolute bottom-10 right-10">
+                    <Button onClick={handleStopEx} className="bg-red-500 hover:bg-red-600 text-white font-black rounded-2xl px-10 py-5 flex items-center gap-2 shadow-2xl transition-transform active:scale-95">
+                      <CameraOff className="w-5 h-5" /> STOP DETECTION
+                    </Button>
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Analysis Sidebar */}
+              <motion.div 
+                initial={{ x: 100, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                className="w-full lg:w-[480px] h-full bg-[#0f172a] border-l border-white/5 p-16 flex flex-col gap-12 shadow-3xl z-20 overflow-y-auto premium-scrollbar"
+              >
+                  <div className="text-center space-y-2">
+                    <h2 className="text-lg font-black text-white tracking-widest uppercase">Analysis</h2>
+                    <div className="flex items-center justify-center gap-2 text-primary">
+                      <Activity className="w-4 h-4" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em]">{EX_LABELS[currentEx]}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 flex flex-col gap-10">
+                    {/* Reps/Timer Hero */}
+                    {!isYogaEx ? (
+                      <div className="text-center py-6 bg-white/5 rounded-[40px] border border-white/5 shadow-inner">
+                        <h3 className="text-9xl font-black text-white tracking-tighter">{repCount}</h3>
+                        <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.2em] mt-2">Current Reps</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center py-6 bg-white/5 rounded-[40px] border border-white/5 shadow-inner">
+                        <div className="text-5xl font-black text-white">{Math.floor(holdElapsed)}s</div>
+                        <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mt-1">Hold Time</p>
+                      </div>
+                    )}
+
+                    {/* Info List Items */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-5 bg-white/5 rounded-3xl border border-white/5">
+                        <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">Form Accuracy</span>
+                        <span className={`text-sm font-black ${formScore > 75 ? 'text-emerald-400' : 'text-amber-400'}`}>{formScore}%</span>
+                      </div>
+                      <div className="flex items-center justify-between p-5 bg-white/5 rounded-3xl border border-white/5">
+                        <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">Movement Speed</span>
+                        <span className={`text-sm font-black ${speedColor}`}>{speed}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-5 bg-white/5 rounded-3xl border border-white/5">
+                        <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">Current Angle</span>
+                        <span className="text-sm font-black text-white">{angle}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Live Feedback Bar */}
+                  <motion.div 
+                    animate={{ backgroundColor: alarmActive ? "rgba(239, 68, 68, 0.2)" : "rgba(255, 255, 255, 0.05)" }}
+                    className="p-6 rounded-3xl border border-white/5 text-center mt-auto"
+                  >
+                    <p className="text-[13px] font-bold text-white/90 leading-relaxed italic">"{feedback}"</p>
+                  </motion.div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }

@@ -21,7 +21,8 @@ if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY.trim()) {
 // 2. POST /api/chats — Stateless AI reply
 app.post("/api/chats", async (req, res) => {
     const { role, text, language, history = [] } = req.body;
-    console.log("📨 API Request /api/chats Body:", { role, text, language });
+    console.log("📨 [CHAT API] Request Received:", { role, textLength: text?.length, language });
+    console.log("🔑 [DEBUG] AI Configured:", !!groq);
 
     if (!role || !text) {
         return res.status(400).json({ error: "Missing required properties (role, text)" });
