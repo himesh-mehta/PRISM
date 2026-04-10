@@ -1,6 +1,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 export interface UserProfile {
+  user_id?: string;
+  patient_id?: string;
+  doctor_id?: string;
+  users_id?: string;
   name: string;
   email: string;
   age: number;
@@ -10,6 +14,7 @@ export interface UserProfile {
   bodyType: string;
   gender: string;
   role: "patient" | "doctor";
+  password?: string;
   credentials?: string;
   specialization?: string;
 }
@@ -17,7 +22,7 @@ export interface UserProfile {
 interface AuthContextType {
   user: UserProfile | null;
   login: (profile: UserProfile) => void;
-  signup: (profile: UserProfile) => void;
+  signup: (profile: UserProfile) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   loading: boolean;
@@ -64,19 +69,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, []);
 
-  const login = (profile: UserProfile) => {
+  const login = async (profile: UserProfile, isSignup = false) => {
     const bmi = calculateBMI(profile.weight, profile.height);
-    const fullProfile = {
+    const fullProfile: any = {
       ...profile,
       bmi,
       bodyType: getBodyType(bmi),
+      // Always preserve IDs from server responses
+      user_id: (profile as any).user_id || profile.user_id,
+      patient_id: (profile as any).patient_id || null,
+      users_id: (profile as any).users_id || null,
+      doctor_id: (profile as any).doctor_id || null,
     };
+
+    if (isSignup) {
+      try {
+        console.log("📤 Sending signup to server...");
+        const response = await fetch("/api/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(fullProfile),
+        });
+        
+        const data = await response.json();
+        if (data.success && data.user) {
+          console.log("✅ User saved to Neon. ID:", data.user.user_id);
+          fullProfile.user_id   = data.user.user_id;
+          fullProfile.patient_id = data.user.patient_id;
+          fullProfile.users_id  = data.user.users_id;
+          fullProfile.doctor_id = data.user.doctor_id || null;
+        } else {
+          console.error("❌ Database sync failed:", data.error);
+        }
+      } catch (err) {
+        console.error("❌ Server connection error during signup:", err);
+      }
+    }
+
+    console.log("✅ [AUTH] Storing user with patient_id:", fullProfile.patient_id);
     setUser(fullProfile);
     localStorage.setItem("prism_user", JSON.stringify(fullProfile));
   };
 
-  const signup = (profile: UserProfile) => {
-    login(profile);
+  const signup = async (profile: UserProfile) => {
+    await login(profile, true);
   };
 
   const logout = () => {

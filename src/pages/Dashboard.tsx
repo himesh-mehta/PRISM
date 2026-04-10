@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -30,14 +30,14 @@ import { jsPDF } from 'jspdf';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
-const weeklyData = [
-  { day: "Mon", reps: 45, calories: 120 },
-  { day: "Tue", reps: 30, calories: 80 },
-  { day: "Wed", reps: 65, calories: 180 },
-  { day: "Thu", reps: 0, calories: 0 }, // Hovered in photo
-  { day: "Fri", reps: 140, calories: 110 },
-  { day: "Sat", reps: 25, calories: 70 },
-  { day: "Sun", reps: 40, calories: 110 },
+const emptyWeeklyData = [
+  { day: "Mon", reps: 0, calories: 0 },
+  { day: "Tue", reps: 0, calories: 0 },
+  { day: "Wed", reps: 0, calories: 0 },
+  { day: "Thu", reps: 0, calories: 0 },
+  { day: "Fri", reps: 0, calories: 0 },
+  { day: "Sat", reps: 0, calories: 0 },
+  { day: "Sun", reps: 0, calories: 0 },
 ];
 
 const container = {
@@ -58,64 +58,129 @@ const item: any = {
 };
 
 const Dashboard = () => {
-  const [painLevel, setPainLevel] = useState([2]);
+  const [painLevel, setPainLevel] = useState([0]);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [isPlanOpen, setIsPlanOpen] = useState(false);
   const [chartType, setChartType] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
+  const [dbLogs, setDbLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [realStats, setRealStats] = useState({
+    totalSessions: 0,
+    avgPostureScore: 0,
+    totalReps: 0,
+    totalExerciseSessions: 0,
+    latestScore: 0,
+  });
+
+  useEffect(() => {
+    const fetchDbActivity = async () => {
+      if (!user?.user_id) return;
+      try {
+        setLoadingLogs(true);
+        const logs: any[] = [];
+
+        // 1. Posture Logs
+        if (user.patient_id) {
+          const pRes = await fetch(`/api/posture-history?patientId=${user.patient_id}`);
+          const pData = await pRes.json();
+          if (pData.success) {
+            pData.sessions.slice(0, 5).forEach((s: any) => {
+              logs.push({
+                type: 'posture',
+                title: 'Posture Analysis',
+                time: new Date(s.finished_at).toLocaleString(),
+                result: `${s.overall_score}% Score`,
+                rawDate: new Date(s.finished_at)
+              });
+            });
+          }
+        }
+
+        // 2. Exercise Logs (Metric updates)
+        const eRes = await fetch(`/api/exercise-history?userId=${user.user_id}`);
+        const eData = await eRes.json();
+        if (eData.success) {
+          // Group by timestamp to show sessions
+          const seenTime = new Set();
+          eData.metrics.forEach((m: any) => {
+             const timeStr = new Date(m.recorded_at).toISOString();
+             if (!seenTime.has(timeStr)) {
+               seenTime.add(timeStr);
+               logs.push({
+                 type: 'exercise',
+                 title: m.metric_type.split('_').pop()?.toUpperCase() + " Workout",
+                 time: new Date(m.recorded_at).toLocaleString(),
+                 result: 'Logged',
+                 rawDate: new Date(m.recorded_at)
+               });
+             }
+          });
+        }
+
+        // Sort by date desc
+        logs.sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime());
+        setDbLogs(logs.slice(0, 8));
+
+        // Compute real stats
+        const postureLogs = logs.filter(l => l.type === 'posture');
+        const exerciseLogs = logs.filter(l => l.type === 'exercise');
+        const scores = postureLogs.map(l => parseInt(l.result) || 0);
+        setRealStats({
+          totalSessions: logs.length,
+          avgPostureScore: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
+          totalReps: exerciseLogs.length,
+          totalExerciseSessions: exerciseLogs.length,
+          latestScore: scores.length > 0 ? scores[0] : 0,
+        });
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+      } finally {
+        setLoadingLogs(false);
+      }
+    };
+
+    fetchDbActivity();
+  }, [user]);
 
   const dailyData = [
-    { day: "08:00", posture: 65, pain: 4 },
-    { day: "10:00", posture: 70, pain: 4 },
-    { day: "12:00", posture: 75, pain: 3 },
-    { day: "14:00", posture: 68, pain: 3 },
-    { day: "16:00", posture: 82, pain: 2 },
-    { day: "18:00", posture: 85, pain: 2 },
-    { day: "20:00", posture: 80, pain: 1 },
+    { day: "08:00", posture: 0, pain: 0 },
+    { day: "10:00", posture: 0, pain: 0 },
+    { day: "12:00", posture: 0, pain: 0 },
+    { day: "14:00", posture: 0, pain: 0 },
+    { day: "16:00", posture: 0, pain: 0 },
+    { day: "18:00", posture: 0, pain: 0 },
+    { day: "20:00", posture: 0, pain: 0 },
   ];
 
   const monthlyData = [
-    { day: "Week 1", posture: 60, pain: 5 },
-    { day: "Week 2", posture: 68, pain: 4 },
-    { day: "Week 3", posture: 75, pain: 3 },
-    { day: "Week 4", posture: 82, pain: 2 },
+    { day: "Week 1", posture: 0, pain: 0 },
+    { day: "Week 2", posture: 0, pain: 0 },
+    { day: "Week 3", posture: 0, pain: 0 },
+    { day: "Week 4", posture: 0, pain: 0 },
   ];
 
   const chartDataMap = {
     daily: dailyData,
-    weekly: weeklyData,
+    weekly: emptyWeeklyData,
     monthly: monthlyData
   };
 
-  const mockLogs = [
-    { type: 'posture', title: 'Cervical Scan', time: '12m ago', result: 'Improved' },
-    { type: 'exercise', title: 'Thoracic Stretch', time: '2h ago', result: 'Completed' },
-    { type: 'clinical', title: 'Dr. Hayes Update', time: '4h ago', result: 'New Focus' },
-    { type: 'exercise', title: 'Core Stability', time: 'Yesterday', result: 'Partial' },
-    { type: 'posture', title: 'Daily Baseline', time: 'Yesterday', result: 'Normal' },
-  ];
+  const mockLogs: any[] = []; // empty — all data comes from DB now
 
   const metrics = [
-    { label: "Pain Level", value: `${painLevel[0]}/10`, trend: "-15%", icon: Heart, sparkline: [6, 5, 4, 3, 3, 2, painLevel[0]], color: "text-rose-500", trendType: "positive", insight: "Significant relief detected" },
-    { label: "Posture Score", value: "88%", trend: "+12%", icon: ScanEye, sparkline: [65, 72, 75, 78, 82, 85, 88], color: "text-blue-500", trendType: "positive", insight: "Focus on cervical alignment" },
-    { label: "Recovery %", value: "72%", trend: "+8%", icon: Target, sparkline: [40, 48, 52, 58, 65, 70, 72], color: "text-indigo-500", trendType: "positive", insight: "Ahead of schedule" },
-    { label: "Session Streak", value: "12 Days", trend: "+2", icon: Zap, sparkline: [3, 5, 8, 9, 10, 11, 12], color: "text-amber-500", trendType: "positive", insight: "Consistency King!" },
-    { label: "Weekly Time", value: "8.4h", trend: "+1.2h", icon: Clock, sparkline: [4, 5, 6, 7, 7.5, 8, 8.4], color: "text-emerald-500", trendType: "positive", insight: "Optimal workload range" },
+    { label: "Pain Level", value: `${painLevel[0]}/10`, trend: painLevel[0] <= 3 ? "-" : "", icon: Heart, sparkline: [0, 0, 0, 0, 0, 0, painLevel[0]], color: "text-rose-500", trendType: "positive", insight: painLevel[0] === 0 ? "No data yet" : "Self-reported" },
+    { label: "Posture Score", value: realStats.avgPostureScore > 0 ? `${realStats.avgPostureScore}%` : "—", trend: realStats.avgPostureScore > 0 ? `${realStats.latestScore}%` : "—", icon: ScanEye, sparkline: [0, 0, 0, 0, 0, 0, realStats.avgPostureScore], color: "text-blue-500", trendType: "positive", insight: realStats.avgPostureScore > 0 ? "Based on your scans" : "Run a posture scan" },
+    { label: "Total Sessions", value: `${realStats.totalSessions}`, trend: realStats.totalSessions > 0 ? `${realStats.totalSessions}` : "0", icon: Target, sparkline: [0, 0, 0, 0, 0, 0, realStats.totalSessions], color: "text-indigo-500", trendType: "positive", insight: realStats.totalSessions > 0 ? "Keep it up!" : "Start your first session" },
+    { label: "Exercises Done", value: `${realStats.totalExerciseSessions}`, trend: realStats.totalExerciseSessions > 0 ? `+${realStats.totalExerciseSessions}` : "0", icon: Zap, sparkline: [0, 0, 0, 0, 0, 0, realStats.totalExerciseSessions], color: "text-amber-500", trendType: "positive", insight: realStats.totalExerciseSessions > 0 ? "Great consistency!" : "Try the exercise tracker" },
+    { label: "Latest Score", value: realStats.latestScore > 0 ? `${realStats.latestScore}%` : "—", trend: realStats.latestScore > 0 ? "Latest" : "—", icon: Clock, sparkline: [0, 0, 0, 0, 0, 0, realStats.latestScore], color: "text-emerald-500", trendType: "positive", insight: realStats.latestScore > 0 ? "From your last scan" : "No scans yet" },
   ];
 
-  const [exercises, setExercises] = useState([
-    { id: 1, name: "Cervical Extension", muscle: "Neck", duration: "10 min", difficulty: "Easy", completed: true, img: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=200&h=200&fit=crop" },
-    { id: 2, name: "Scapular Retraction", muscle: "Upper Back", duration: "15 min", difficulty: "Medium", completed: false, img: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=200&h=200&fit=crop" },
-    { id: 3, name: "Shoulder External Rotation", muscle: "Rotator Cuff", duration: "12 min", difficulty: "Medium", completed: false, img: "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=400&h=400&fit=crop" },
-  ]);
+  const [exercises, setExercises] = useState<any[]>([]);
 
-  const [sessions, setSessions] = useState([
-    { id: 1, title: "Morning Mobility Scan", type: "scan", status: "completed", duration: "15 Min" },
-    { id: 2, title: "Cervical Extension Drills", type: "exercise", status: "pending", duration: "12 Min" },
-    { id: 3, title: "Scapular Path Correction", type: "exercise", status: "pending", duration: "15 Min" },
-  ]);
+  const [sessions, setSessions] = useState<any[]>([]);
 
   const addSession = () => {
     const newSession = {
@@ -159,7 +224,7 @@ const Dashboard = () => {
     try {
       const wb = XLSX.utils.book_new();
       
-      const wsWeekly = XLSX.utils.json_to_sheet(weeklyData);
+      const wsWeekly = XLSX.utils.json_to_sheet(emptyWeeklyData);
       XLSX.utils.book_append_sheet(wb, wsWeekly, "Weekly Activity");
 
       const wsExercises = XLSX.utils.json_to_sheet(exercises.map(e => ({ Exercise: e.name, Muscle: e.muscle, Duration: e.duration, Status: e.completed ? 'Completed' : 'Pending' })));
@@ -203,20 +268,32 @@ const Dashboard = () => {
                 <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1">Last 5 interactions</p>
               </DialogHeader>
               <div className="space-y-4">
-                {mockLogs.map((log, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-secondary/30 border border-border/40 hover:bg-white transition-all group">
-                    <div className="flex items-center gap-4">
-                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${log.type === 'posture' ? 'bg-blue-500/10 text-blue-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
-                         {log.type === 'posture' ? <ScanEye className="w-5 h-5" /> : <Activity className="w-5 h-5" />}
-                       </div>
-                       <div>
-                         <p className="text-sm font-black text-foreground uppercase tracking-tighter">{log.title}</p>
-                         <p className="text-[10px] font-bold text-muted-foreground uppercase">{log.time}</p>
-                       </div>
+                {loadingLogs ? (
+                    <div className="py-20 text-center">
+                        <div className="w-8 h-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Accessing Neon Ledger...</p>
                     </div>
-                    <Badge variant="outline" className="text-[9px] font-black uppercase text-blue-500 border-blue-500/20">{log.result}</Badge>
-                  </div>
-                ))}
+                ) : dbLogs.length === 0 ? (
+                    <div className="py-20 text-center bg-secondary/20 rounded-2xl border border-dashed border-border/50">
+                        <History className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">No clinical history recorded</p>
+                    </div>
+                ) : (
+                  dbLogs.map((log, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-secondary/30 border border-border/40 hover:bg-white transition-all group">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${log.type === 'posture' ? 'bg-blue-500/10 text-blue-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                          {log.type === 'posture' ? <ScanEye className="w-5 h-5" /> : <Activity className="w-5 h-5" />}
+                        </div>
+                        <div className="min-w-0 pr-2">
+                          <p className="text-sm font-black text-foreground uppercase tracking-tighter truncate">{log.title}</p>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase">{log.time}</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] font-black uppercase text-blue-500 border-blue-500/20 whitespace-nowrap">{log.result}</Badge>
+                    </div>
+                  ))
+                )}
               </div>
               <Button className="w-full mt-6 rounded-xl bg-[#0B1220] text-white font-black h-12 uppercase text-[10px] tracking-widest shadow-lg" onClick={() => setIsLogOpen(false)}>Close History</Button>
             </DialogContent>
@@ -242,16 +319,19 @@ const Dashboard = () => {
                   Welcome back, <span className="text-blue-400 uppercase tracking-tighter">{user?.name?.split(' ')[0] || 'User'}</span>
                 </h2>
                 <p className="text-white/70 text-sm font-medium mt-3 max-w-md leading-relaxed">
-                  Your recovery path is 64% complete. You have 3 focused exercises remaining for today's clinical milestone.
+                  {realStats.totalSessions > 0
+                    ? `You have completed ${realStats.totalSessions} session${realStats.totalSessions > 1 ? 's' : ''} so far. ${realStats.avgPostureScore > 0 ? `Your average posture score is ${realStats.avgPostureScore}%.` : ''}`
+                    : "Welcome to PRISM! Start a posture scan or exercise session to begin tracking your recovery."
+                  }
                 </p>
                 <div className="mt-8 flex items-center gap-3">
                   <div className="bg-blue-500/10 border border-blue-500/20 px-4 py-2 rounded-full flex items-center gap-3 group cursor-default shadow-glow-sm">
                      <Zap className="w-4 h-4 text-blue-400 fill-blue-400/20 animate-pulse" />
-                     <span className="text-xs font-black text-blue-400 uppercase tracking-widest">12 Day Streak</span>
+                     <span className="text-xs font-black text-blue-400 uppercase tracking-widest">{realStats.totalSessions} Session{realStats.totalSessions !== 1 ? 's' : ''}</span>
                   </div>
                   <div className="bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-full flex items-center gap-3 shadow-glow-sm">
                      <Target className="w-4 h-4 text-emerald-400" />
-                     <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">Rank #4</span>
+                     <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">{realStats.avgPostureScore > 0 ? `Score ${realStats.avgPostureScore}%` : 'New User'}</span>
                   </div>
                 </div>
               </div>
@@ -311,12 +391,12 @@ const Dashboard = () => {
                  </div>
                </div>
                <div className="space-y-2.5 relative z-10">
-                 {exercises.map(ex => (
+                 {exercises.length > 0 ? exercises.map(ex => (
                    <motion.div key={ex.id} whileHover={{ scale: 1.01, backgroundColor: 'rgba(255,255,255,0.08)' }} whileTap={{ scale: 0.99 }} className={`flex flex-col gap-2 p-3 rounded-xl border border-white/5 transition-all cursor-pointer shadow-sm hover:shadow-glow-sm hover:border-white/20 ${ex.completed ? 'bg-white/[0.03]' : 'bg-white/[0.05]'}`} onClick={() => toggleExercise(ex.id)}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center border shadow-inner ${ex.completed ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-blue-500/10 border-blue-500/20'}`}>
-                              {ex.id === 1 ? <Activity className={`w-4.5 h-4.5 ${ex.completed ? 'text-emerald-400' : 'text-blue-400'}`} /> : ex.id === 2 ? <TrendingUp className={`w-4.5 h-4.5 ${ex.completed ? 'text-emerald-400' : 'text-blue-400'}`} /> : <ScanEye className={`w-4.5 h-4.5 ${ex.completed ? 'text-emerald-400' : 'text-blue-400'}`} />}
+                              <Activity className={`w-4.5 h-4.5 ${ex.completed ? 'text-emerald-400' : 'text-blue-400'}`} />
                            </div>
                            <div className="flex flex-col">
                               <span className={`text-[11px] font-bold uppercase tracking-wide leading-tight ${ex.completed ? 'text-white/60' : 'text-white'}`}>{ex.name}</span>
@@ -337,20 +417,26 @@ const Dashboard = () => {
                          <div className={`h-full transition-all duration-1000 ${ex.completed ? 'bg-gradient-to-r from-emerald-500 to-teal-400 w-full' : 'bg-gradient-to-r from-blue-500 to-indigo-500 w-[30%]'}`} />
                       </div>
                    </motion.div>
-                 ))}
+                 )) : (
+                   <div className="flex flex-col items-center justify-center py-8 text-center">
+                     <Activity className="w-8 h-8 text-white/20 mb-2" />
+                     <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">No exercises yet</p>
+                     <p className="text-[9px] text-white/20 mt-1">Start a session to track</p>
+                   </div>
+                 )}
                </div>
                <div className="mt-auto pt-4 border-t border-white/5 relative z-10">
                   <div className="flex items-end justify-between mb-3">
                     <div className="flex flex-col gap-1">
                       <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">Daily Progress</span>
-                      <span className="text-2xl font-display font-black bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent leading-none">{progressPercent}%</span>
+                      <span className="text-2xl font-display font-black bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent leading-none">{totalCount > 0 ? progressPercent : 0}%</span>
                     </div>
                     <span className="text-[8px] font-bold text-white/30 uppercase tracking-widest pb-1">{completedCount} of {totalCount} Exercises</span>
                   </div>
                   <div className="relative h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                    <motion.div key={progressPercent} initial={{ width: 0 }} animate={{ width: `${progressPercent}%` }} transition={{ duration: 1.5, ease: "easeOut" }} className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 shadow-glow" />
+                    <motion.div key={progressPercent} initial={{ width: 0 }} animate={{ width: `${totalCount > 0 ? progressPercent : 0}%` }} transition={{ duration: 1.5, ease: "easeOut" }} className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 shadow-glow" />
                   </div>
-                  <p className="mt-3 text-[8px] font-bold text-white/20 text-center uppercase tracking-widest">Next: Thoracic Flexibility Alpha</p>
+                  <p className="mt-3 text-[8px] font-bold text-white/20 text-center uppercase tracking-widest">{totalCount > 0 ? 'Keep up the good work!' : 'Start your first session!'}</p>
             </div>
           </div>
         </div>
@@ -410,15 +496,12 @@ const Dashboard = () => {
                    <Button size="icon" variant="ghost" className="rounded-full hover:bg-slate-100 h-8 w-8 text-blue-600 bg-blue-50" onClick={addSession}><Plus className="w-4 h-4" /></Button>
                 </div>
                 <div className="space-y-4">
-                   {sessions.map((item, i) => (
+                   {sessions.length > 0 ? sessions.map((item, i) => (
                       <div key={item.id} className="flex gap-5 group/item cursor-pointer">
-                         {/* 📍 Connector Section */}
                          <div className="flex flex-col items-center">
                             <div className={`w-2 h-2 rounded-full border-[2px] border-white shadow-md transition-all duration-500 ring-2 mt-6 ${item.status === 'completed' ? 'bg-emerald-500 ring-emerald-500/10' : 'bg-blue-500 ring-blue-500/10 animate-pulse'}`} />
                             <div className="w-[1px] h-full bg-slate-100/60 mt-2 group-last/item:hidden" />
                          </div>
-
-                         {/* 📦 Card Section */}
                          <div 
                            className={`flex-1 flex flex-col md:flex-row md:items-center justify-between p-3 rounded-2xl border transition-all duration-500 relative overflow-hidden ${
                              item.status === 'completed' 
@@ -427,9 +510,7 @@ const Dashboard = () => {
                            }`}
                            onClick={() => item.status !== 'completed' && navigate('/dashboard/tracker')}
                          >
-                            {/* Background Glow for completed */}
                             {item.status === 'completed' && <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 blur-2xl rounded-full" />}
-                            
                             <div className="flex items-center gap-4 relative z-10">
                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm transition-transform group-hover/item:scale-105 ${
                                  item.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-50 text-blue-600'
@@ -437,36 +518,34 @@ const Dashboard = () => {
                                   {item.type === 'scan' ? <ScanEye className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                                </div>
                                <div className="flex flex-col gap-0.5">
-                                  <h5 className="text-[13px] font-black text-slate-900 tracking-tight uppercase leading-tight group-hover/item:text-blue-600 transition-colors">
-                                    {item.title}
-                                  </h5>
+                                  <h5 className="text-[13px] font-black text-slate-900 tracking-tight uppercase leading-tight group-hover/item:text-blue-600 transition-colors">{item.title}</h5>
                                   <div className="flex items-center gap-2">
                                      <span className="text-[8px] font-black text-slate-400/80 uppercase tracking-widest">{item.duration}</span>
-                                     <span className="w-0.5 h-0.5 rounded-full bg-slate-200" />
-                                     <span className="text-[8px] font-black text-blue-500/60 uppercase tracking-widest">Clinical Grade</span>
                                   </div>
                                </div>
                             </div>
-
                             <div className="flex items-center gap-2 mt-3 md:mt-0 relative z-10">
                                {item.status === 'completed' ? (
                                  <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-500 rounded-full shadow-glow-sm">
                                    <Check className="w-2.5 h-2.5 text-white" strokeWidth={5} />
-                                   <span className="text-[8px] font-black text-white uppercase tracking-widest">Verified</span>
+                                   <span className="text-[8px] font-black text-white uppercase tracking-widest">Done</span>
                                  </div>
                                ) : (
-                                 <Button 
-                                   size="sm" 
-                                   className="rounded-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[8px] tracking-widest h-7 px-4 shadow-sm hover:shadow-glow transition-all active:scale-95"
-                                   onClick={(e) => { e.stopPropagation(); navigate('/dashboard/tracker'); }}
-                                 >
+                                 <Button size="sm" className="rounded-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[8px] tracking-widest h-7 px-4 shadow-sm" onClick={(e) => { e.stopPropagation(); navigate('/dashboard/tracker'); }}>
                                    Start <ChevronRight className="w-2.5 h-2.5 ml-1" />
                                  </Button>
                                )}
                             </div>
                          </div>
                       </div>
-                   ))}
+                   )) : (
+                     <div className="flex flex-col items-center justify-center py-16 text-center">
+                       <CalendarDays className="w-10 h-10 text-slate-300 mb-3" />
+                       <p className="text-sm font-bold text-slate-400">No sessions scheduled</p>
+                       <p className="text-[10px] text-slate-300 mt-1">Start a posture scan or exercise to begin</p>
+                       <Button size="sm" className="mt-4 rounded-full bg-blue-600 text-white font-black uppercase text-[9px] tracking-widest h-8 px-5" onClick={() => navigate('/dashboard/tracker')}>Start Session</Button>
+                     </div>
+                   )}
                 </div>
              </div>
           </div>
@@ -497,58 +576,36 @@ const Dashboard = () => {
             <Button variant="ghost" className="text-blue-500 font-black text-xs hover:bg-blue-50 uppercase tracking-widest">Filter <Filter className="w-4 h-4 ml-2" /></Button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {exercises.map((ex) => (
+            {exercises.length > 0 ? exercises.map((ex) => (
               <div key={ex.id} className="group relative flex items-center gap-5 p-4 rounded-[2rem] bg-white/50 backdrop-blur-xl border border-slate-200/60 hover:border-blue-300 hover:shadow-elevated transition-all duration-500 h-[120px] overflow-hidden">
-                {/* 🌈 Image Container */}
                 <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-inner flex-shrink-0 relative border border-slate-100 bg-slate-50">
-                  <img 
-                    src={ex.img} 
-                    alt={ex.name} 
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" 
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=crop";
-                    }}
-                  />
+                  {ex.img && <img src={ex.img} alt={ex.name} className="w-full h-full object-cover" />}
                   {ex.completed && (
                     <div className="absolute inset-0 bg-emerald-500/40 flex items-center justify-center backdrop-blur-[1px]">
                       <Check className="text-white w-8 h-8 drop-shadow-lg" strokeWidth={3} />
                     </div>
                   )}
                 </div>
-                
-                {/* 📝 Content Section */}
                 <div className="flex-1 flex flex-col justify-between min-w-0 py-0.5">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                       <span className="text-[8px] font-black uppercase text-blue-500/60 tracking-widest bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">{ex.muscle}</span>
-                       <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">• {ex.difficulty}</span>
-                    </div>
-                    <h4 className="text-[14px] font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight truncate leading-tight">
-                      {ex.name}
-                    </h4>
+                    <span className="text-[8px] font-black uppercase text-blue-500/60 tracking-widest bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">{ex.muscle}</span>
+                    <h4 className="text-[14px] font-black text-slate-900 uppercase tracking-tight truncate leading-tight">{ex.name}</h4>
                     <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                        <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-slate-300" /> {ex.duration}</span>
                     </div>
                   </div>
-                  
-                  <div className="mt-2 text-right">
-                    {ex.completed ? (
-                      <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest flex items-center justify-end gap-1.5">
-                        Completed <Check className="w-3 h-3" />
-                      </span>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        className="rounded-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[9px] tracking-widest h-8 px-5 shadow-glow-sm transition-all group-hover:scale-105 active:scale-95"
-                        onClick={() => navigate("/dashboard/tracker")}
-                      >
-                        Start <Play className="w-2.5 h-2.5 ml-1.5 fill-current" />
-                      </Button>
-                    )}
-                  </div>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                <Activity className="w-12 h-12 text-slate-200 mb-4" />
+                <p className="text-lg font-bold text-slate-400">No exercises recorded yet</p>
+                <p className="text-sm text-slate-300 mt-1 mb-4">Complete an exercise session to see your recovery drills here</p>
+                <Button className="rounded-full bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest h-10 px-6" onClick={() => navigate("/dashboard/tracker")}>
+                  Start Exercise <Play className="w-3 h-3 ml-2 fill-current" />
+                </Button>
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -567,7 +624,7 @@ const Dashboard = () => {
               <div className="h-[280px] w-full relative z-10 p-2">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
-                    data={weeklyData}
+                    data={emptyWeeklyData}
                     margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
                     barGap={6}
                   >

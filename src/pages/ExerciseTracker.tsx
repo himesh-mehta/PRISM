@@ -195,16 +195,13 @@ export default function ExerciseTracker() {
     } else {
       if (s.reps !== undefined) setRepCount(s.reps);
       setAngle(s.angle !== undefined ? `${s.angle}°` : "—");
-      if (s.speed_msg) {
-        setSpeed(s.speed_msg);
-        setSpeedColor(s.speed_status === "good" ? "text-emerald-400" : s.speed_status === "too_fast" ? "text-red-400" : "text-amber-400");
-      }
+      // Show live speed from backend (starts as 'Ready', updates as user moves)
+      setSpeed(s.speed_msg !== undefined ? s.speed_msg : "Ready");
+      setSpeedColor(s.speed_status === "good" ? "text-emerald-400" : s.speed_status === "too_fast" ? "text-red-400" : "text-amber-400");
       setAvgTime(s.avg_rep_time > 0 ? `${s.avg_rep_time}s` : "—");
-      if (s.speed_status) {
-        const map: any = { good: "✓ Good", too_fast: "⚠ Too Fast", too_slow: "⚠ Too Slow" };
-        setStatusTxt(map[s.speed_status] || "—");
-        setStatusColor(s.speed_status === "good" ? "text-emerald-400" : s.speed_status === "too_fast" ? "text-red-400" : "text-amber-400");
-      }
+      const statusMap: any = { good: "✓ Good", too_fast: "⚠ Too Fast", too_slow: "⚠ Too Slow" };
+      setStatusTxt(statusMap[s.speed_status] || "—");
+      setStatusColor(s.speed_status === "good" ? "text-emerald-400" : s.speed_status === "too_fast" ? "text-red-400" : "text-amber-400");
     }
     if (s.form_score !== undefined) setFormScore(s.form_score);
     if (s.feedback) setFeedback(s.feedback);
@@ -249,12 +246,33 @@ export default function ExerciseTracker() {
     try {
       await fetch("/api-exercise/stop_exercise", { method: "POST" });
     } catch (e) {}
+
+    // 💾 Save exercise session to Neon
+    const savedUser = localStorage.getItem("prism_user");
+    if (savedUser) {
+      const u = JSON.parse(savedUser);
+      if (u.user_id && repCount > 0) {
+        fetch("/api/exercise-report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: u.user_id,
+            exercise: currentEx,
+            reps: repCount,
+            formScore: formScore,
+            duration: holdElapsed > 0 ? Math.round(holdElapsed) : repCount * 3
+          })
+        })
+        .then(r => r.json())
+        .then(() => console.log("✅ Exercise session saved to Neon"))
+        .catch(err => console.error("Exercise save failed:", err));
+      }
+    }
+
     setTracking(false); setStateBadge("stopped");
-    // Mirror Posture AI: Exit Native Fullscreen
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     }
-    // Automatically turn off camera when exercise is stopped or paused
     await handleStopCam();
   }
 

@@ -70,21 +70,27 @@ const LoginModal = ({ isOpen, onClose, initialTab = "login" }: LoginModalProps) 
         setLoginLoading(true);
         setError(null);
 
-        // Mock login
-        setTimeout(() => {
-            const mockProfile = {
-                name: loginForm.email.split('@')[0],
-                email: loginForm.email,
-                age: 25,
-                weight: 70,
-                height: 170,
-                role: "patient" as Role // Default to patient for mock login
-            };
-            login(mockProfile as any);
+        try {
+            const response = await fetch("/api/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: loginForm.email, password: loginForm.password }),
+            });
+            const data = await response.json();
+
+            if (data.success && data.user) {
+                login(data.user as any);
+                setLoginLoading(false);
+                onClose();
+                navigate(data.user.role === "doctor" ? "/doctor/dashboard" : "/dashboard");
+            } else {
+                setError(data.error || "Login failed. Please check your credentials.");
+                setLoginLoading(false);
+            }
+        } catch (err) {
+            setError("Cannot connect to server. Make sure the backend is running.");
             setLoginLoading(false);
-            onClose();
-            navigate("/dashboard");
-        }, 1000);
+        }
     };
 
     const handleSignupSubmit = async (e: React.FormEvent) => {
@@ -102,29 +108,27 @@ const LoginModal = ({ isOpen, onClose, initialTab = "login" }: LoginModalProps) 
 
         setSignupLoading(true);
         
-        // Mock signup
-        setTimeout(() => {
-            const profileData = {
-                name: signupForm.name,
-                email: signupForm.email,
-                age: parseInt(signupForm.age),
-                weight: parseFloat(signupForm.weight) || 0,
-                height: parseFloat(signupForm.height) || 0,
-                gender: signupForm.gender,
-                role: role,
-                credentials: signupForm.credentials || "",
-                specialization: signupForm.specialization || ""
-            };
+        const profileData = {
+            name: signupForm.name,
+            email: signupForm.email,
+            age: parseInt(signupForm.age),
+            weight: parseFloat(signupForm.weight) || 0,
+            height: parseFloat(signupForm.height) || 0,
+            gender: signupForm.gender,
+            role: role,
+            password: signupForm.password,
+            credentials: signupForm.credentials || "",
+            specialization: signupForm.specialization || ""
+        };
 
-            signup(profileData as any);
-            setSignupLoading(false);
-            onClose();
-            if (role === "doctor") {
-                navigate("/doctor/dashboard");
-            } else {
-                navigate("/dashboard");
-            }
-        }, 1000);
+        await signup(profileData as any);
+        setSignupLoading(false);
+        onClose();
+        if (role === "doctor") {
+            navigate("/doctor/dashboard");
+        } else {
+            navigate("/dashboard");
+        }
     };
 
     return (

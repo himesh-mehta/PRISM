@@ -215,6 +215,19 @@ const AIChatbot = () => {
       }
 
       setMessages(prev => [...prev, { role: "assistant", text: botReply, recommendations: recs.length > 0 ? recs : undefined }]);
+
+      // 💾 Save to Neon DB (fire-and-forget, don't block UI)
+      if (user?.user_id) {
+        fetch("/api/chat-save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.user_id,
+            userMessage: finalMsg,
+            assistantReply: botReply
+          })
+        }).catch(err => console.error("Chat save failed:", err));
+      }
     } catch (error: any) {
       console.error("Chat error:", error);
       toast.error(error.message || "Failed to get response");

@@ -1,0 +1,8 @@
+C:\Users\maitr\Documents\GitHub\prism-health-hub\public\EXERCISE-TRACKER-main\main.py
+C:\Users\maitr\Documents\GitHub\prism-health-hub\public\POSTURE-DETECTION-main\main.py
+C:\Users\maitr\Documents\GitHub\Prism_MiniProject2\dist\EXERCISE-TRACKER-main\main.py
+C:\Users\maitr\Documents\GitHub\Prism_MiniProject2\dist\POSTURE-DETECTION-main\main.py
+C:\Users\maitr\Documents\GitHub\Prism_MiniProject2\public\EXERCISE-TRACKER-main\main.py
+C:\Users\maitr\Documents\GitHub\Prism_MiniProject2\public\POSTURE-DETECTION-main\main.py
+C:\Users\maitr\Documents\GitHub\PRSM\public\EXERCISE-TRACKER-main\main.py
+C:\Users\maitr\Documents\GitHub\PRSM\public\POSTURE-DETECTION-main\main.py

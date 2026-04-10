@@ -12,7 +12,7 @@ YOGA POSES (Hold Timer):
   Chair Pose | Triangle Pose
 """
 
-import cv2, math, time, threading, collections
+import cv2, math, time, threading, collections, os
 import numpy as np
 import mediapipe as mp
 from mediapipe.tasks import python as mp_py
@@ -20,6 +20,20 @@ from mediapipe.tasks.python import vision as mp_vis
 from flask import Flask, Response, jsonify, render_template, request
 
 app = Flask(__name__)
+
+# Load env from .env.local (manual since python-dotenv not found)
+def load_env_local():
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '.env.local')
+    if os.path.exists(env_path):
+        with open(env_path, 'r') as f:
+            for line in f:
+                if line.strip() and not line.startswith('#'):
+                    key, value = line.strip().split('=', 1)
+                    os.environ[key] = value
+
+load_env_local()
+from database import NeonDB
+db = NeonDB()
 
 # ═══════════════════════════════════════════════════════════════
 #  CONFIG
@@ -207,7 +221,7 @@ class ExerciseBase:
         self.speed_msg    = ''
         self.speed_status = 'good'
         self.form_score   = 100
-        self.rep_times    = collections.deque(maxlen=4) # Smaller window for responsiveness
+        self.rep_times    = collections.deque(maxlen=4)
         self.active       = True
         self.session_start= time.time()
         self.is_yoga      = False
@@ -218,7 +232,15 @@ class ExerciseBase:
         
         # Stability fields
         self.last_rep_time = 0
-        self.smoothing     = 0.50 # Increased for higher jitter tolerance
+        self.smoothing     = 0.30  # Lower = heavier smoothing = less jitter
+
+        # Phase-lock cooldown to prevent rapid oscillation
+        self._phase_lock_until = 0.0
+        self._PHASE_LOCK_MS    = 0.35  # seconds to lock phase after a transition
+
+        # Live speed estimation (shows speed DURING a rep, not just after)
+        self._live_speed_msg    = 'Ready'
+        self._live_speed_status = 'good'
 
     def avg_rep_time(self):
         if not self.rep_times: return 0.0
@@ -226,9 +248,17 @@ class ExerciseBase:
 
     def smooth_angle(self, new_val):
         """Apply EMA smoothing to angle to reduce jitter."""
-        if self.angle == 0.0 or self.angle == "—": self.angle = new_val
+        if self.angle == 0.0 or self.angle == "\u2014": self.angle = new_val
         else: self.angle = (self.smoothing * new_val) + ((1 - self.smoothing) * self.angle)
         return self.angle
+
+    def can_change_phase(self):
+        """Prevent phase from changing too rapidly (anti-flicker)."""
+        now = time.time()
+        if now >= self._phase_lock_until:
+            self._phase_lock_until = now + self._PHASE_LOCK_MS
+            return True
+        return False
 
     def can_count_rep(self, min_gap=0.8):
         """Rep debouncing: ensures reps aren't counted too close together."""
@@ -237,6 +267,35 @@ class ExerciseBase:
             self.last_rep_time = now
             return True
         return False
+
+    def update_live_speed(self):
+        """Update live speed estimation based on current phase duration."""
+        elapsed = time.time() - self.phase_start
+        if elapsed < 0.3:
+            self._live_speed_msg = 'Moving...'
+            self._live_speed_status = 'good'
+        elif elapsed < self.fast_t:
+            self._live_speed_msg = 'Good Pace'
+            self._live_speed_status = 'good'
+        elif elapsed < self.slow_t:
+            self._live_speed_msg = 'Good Tempo!'
+            self._live_speed_status = 'good'
+        else:
+            self._live_speed_msg = 'Too Slow!'
+            self._live_speed_status = 'too_slow'
+
+    @property
+    def effective_speed_msg(self):
+        """Returns last-rep speed if available, otherwise live estimation."""
+        if self.speed_msg:
+            return self.speed_msg
+        return self._live_speed_msg
+
+    @property
+    def effective_speed_status(self):
+        if self.speed_msg:
+            return self.speed_status
+        return self._live_speed_status
 
     def process(self, lms, w, h):
         raise NotImplementedError
@@ -315,9 +374,11 @@ class SquatTracker(ExerciseBase):
             raw_avg = (l_ang + r_ang) / 2
             self.smooth_angle(raw_avg)
 
-            if self.phase == 'up' and self.angle < 90: # Tighter DOWN threshold
+            self.update_live_speed()
+
+            if self.phase == 'up' and self.angle < 85 and self.can_change_phase():
                 self.phase = 'down'; self.phase_start = time.time()
-            elif self.phase == 'down' and self.angle > 155: # Tighter UP threshold
+            elif self.phase == 'down' and self.angle > 160 and self.can_change_phase():
                 if self.can_count_rep(1.2): 
                     elapsed = time.time() - self.phase_start
                     self.rep_times.append(elapsed)
@@ -325,7 +386,7 @@ class SquatTracker(ExerciseBase):
                     self.speed_status = s; self.speed_msg = m
                     self.reps += 1
                     self.phase = 'up'
-                elif self.angle > 165: # Safety reset if they stay UP but debounce failed
+                elif self.angle > 170:
                     self.phase = 'up'
 
             issues = []
@@ -356,8 +417,8 @@ class SquatTracker(ExerciseBase):
         return [
             ('Phase', self.phase.upper(), BLUE),
             ('Knee Angle', f'{self.angle:.0f}°', self.feedback_col),
-            ('Speed', self.speed_msg or '—', GREEN if self.speed_status=='good' else
-             YELLOW if self.speed_status=='too_slow' else RED),
+            ('Speed', self.effective_speed_msg, GREEN if self.effective_speed_status=='good' else
+             YELLOW if self.effective_speed_status=='too_slow' else RED),
         ]
 
 
@@ -380,9 +441,11 @@ class BicepCurlTracker(ExerciseBase):
             raw_avg = (l_ang + r_ang) / 2
             self.smooth_angle(raw_avg)
 
-            if self.phase == 'down' and self.angle < 45:
+            self.update_live_speed()
+
+            if self.phase == 'down' and self.angle < 40 and self.can_change_phase():
                 self.phase = 'up'; self.phase_start = time.time()
-            elif self.phase == 'up' and self.angle > 145:
+            elif self.phase == 'up' and self.angle > 150 and self.can_change_phase():
                 if self.can_count_rep(1.2):
                     elapsed = time.time() - self.phase_start
                     self.rep_times.append(elapsed)
@@ -390,7 +453,7 @@ class BicepCurlTracker(ExerciseBase):
                     self.speed_status = s; self.speed_msg = m
                     self.reps += 1
                     self.phase = 'down'
-                elif self.angle > 155: # Safety reset
+                elif self.angle > 160:
                     self.phase = 'down'
 
             issues = []
@@ -420,8 +483,8 @@ class BicepCurlTracker(ExerciseBase):
         return [
             ('Phase', self.phase.upper(), BLUE),
             ('Elbow Angle', f'{self.angle:.0f}°', self.feedback_col),
-            ('Speed', self.speed_msg or '—', GREEN if self.speed_status=='good' else
-             YELLOW if self.speed_status=='too_slow' else RED),
+            ('Speed', self.effective_speed_msg, GREEN if self.effective_speed_status=='good' else
+             YELLOW if self.effective_speed_status=='too_slow' else RED),
         ]
 
 
@@ -446,13 +509,14 @@ class PushupTracker(ExerciseBase):
             raw_avg = (l_ang + r_ang) / 2
             self.smooth_angle(raw_avg)
 
-            if self.phase == 'up' and self.angle < 90:
+            self.update_live_speed()
+
+            if self.phase == 'up' and self.angle < 85 and self.can_change_phase():
                 self.phase = 'down'; self.phase_start = time.time()
-            elif self.phase == 'down' and self.angle > 150:
+            elif self.phase == 'down' and self.angle > 155 and self.can_change_phase():
                 if self.can_count_rep(0.8):
                     elapsed = time.time() - self.phase_start
                     self.rep_times.append(elapsed)
-                    # Pushups: 1.0s - 4.5s
                     s, m = classify_speed(elapsed, 1.0, 4.5)
                     self.speed_status = s; self.speed_msg = m
                     self.reps += 1
@@ -484,8 +548,8 @@ class PushupTracker(ExerciseBase):
         return [
             ('Phase', self.phase.upper(), BLUE),
             ('Elbow Angle', f'{self.angle:.0f}°', self.feedback_col),
-            ('Speed', self.speed_msg or '—', GREEN if self.speed_status=='good' else
-             YELLOW if self.speed_status=='too_slow' else RED),
+            ('Speed', self.effective_speed_msg, GREEN if self.effective_speed_status=='good' else
+             YELLOW if self.effective_speed_status=='too_slow' else RED),
         ]
 
 
@@ -509,6 +573,7 @@ class NeckRotationTracker(ExerciseBase):
 
             off = nose[0] - sh_mid_x
             self.angle = abs(off / sh_width * 90)
+            self.update_live_speed()  # live speed even before first rep
 
             if self.state == 'center':
                 if off < -threshold:
@@ -522,7 +587,7 @@ class NeckRotationTracker(ExerciseBase):
                 self.feedback = 'Rotate head to either side'
             elif self.state == 'side':
                 self.feedback = f'Good {self.last_side}! Return to Center'
-                if abs(off) < dead_zone:
+                if abs(off) < dead_zone and self.can_change_phase():
                     if self.can_count_rep(0.8):
                         elapsed = time.time() - self.phase_start
                         self.rep_times.append(elapsed)
@@ -543,8 +608,8 @@ class NeckRotationTracker(ExerciseBase):
         return [
             ('Progress', sides, BLUE),
             ('Rotation', f'{self.angle:.0f}deg', self.feedback_col),
-            ('Speed', self.speed_msg or '-', GREEN if self.speed_status == 'good' else
-             YELLOW if self.speed_status == 'too_slow' else RED),
+            ('Speed', self.effective_speed_msg, GREEN if self.effective_speed_status == 'good' else
+             YELLOW if self.effective_speed_status == 'too_slow' else RED),
         ]
 
 
@@ -566,6 +631,7 @@ class NeckTiltTracker(ExerciseBase):
 
             # Use ear vertical offset for tilt check
             self.angle = abs(math.degrees(math.atan2(abs(ear_y_diff), ear_sep)))
+            self.update_live_speed()  # live speed even before first rep
 
             if self.state == 'center':
                 if ear_y_diff > threshold:
@@ -577,8 +643,12 @@ class NeckTiltTracker(ExerciseBase):
                 self.feedback = 'Tilt head to either side'
             elif self.state == 'side':
                  self.feedback = f'Good {self.last_side}! Now return to Center'
-                 if abs(ear_y_diff) < dead_zone:
+                 if abs(ear_y_diff) < dead_zone and self.can_change_phase():
                      if self.can_count_rep(1.2):
+                         elapsed = time.time() - self.phase_start
+                         self.rep_times.append(elapsed)
+                         s, m = classify_speed(elapsed, 0.5, 3.5)
+                         self.speed_status = s; self.speed_msg = m
                          self.reps += 1
                          self.state = 'center'
                          self.feedback = 'Rep Counted! Return to center'
@@ -591,8 +661,8 @@ class NeckTiltTracker(ExerciseBase):
         return [
             ('Side', self.last_side.upper() if self.last_side else 'CENTER', BLUE),
             ('Tilt Angle', f'{self.angle:.0f}°', self.feedback_col),
-            ('Speed', self.speed_msg or '—', GREEN if self.speed_status=='good' else
-             YELLOW if self.speed_status=='too_slow' else RED),
+            ('Speed', self.effective_speed_msg, GREEN if self.effective_speed_status=='good' else
+             YELLOW if self.effective_speed_status=='too_slow' else RED),
         ]
 
 
@@ -632,15 +702,16 @@ class ShoulderRollTracker(ExerciseBase):
 
             self.angle = abs(offset / max(sh_span, 1) * 90)
 
-            if self.phase == 'neutral' and offset < -threshold:
+            self.update_live_speed()
+
+            if self.phase == 'neutral' and offset < -threshold and self.can_change_phase():
                 self.phase = 'up'; self.phase_start = time.time()
-            elif self.phase == 'up' and offset > threshold:
+            elif self.phase == 'up' and offset > threshold and self.can_change_phase():
                 self.phase = 'down'
-            elif self.phase == 'down' and abs(offset) < threshold * 0.5:
+            elif self.phase == 'down' and abs(offset) < threshold * 0.5 and self.can_change_phase():
                 if self.can_count_rep(0.9):
                     elapsed = time.time() - self.phase_start
                     self.rep_times.append(elapsed)
-                    # Shoulder rolls: 1.5s - 5.0s
                     s, m = classify_speed(elapsed, 1.5, 5.0)
                     self.speed_status = s; self.speed_msg = m
                     self.reps += 1
@@ -670,8 +741,8 @@ class ShoulderRollTracker(ExerciseBase):
         return [
             ('Phase', self.phase.upper(), BLUE),
             ('Shoulder Lift', f'{self.angle:.0f}°', self.feedback_col),
-            ('Speed', self.speed_msg or '—', GREEN if self.speed_status=='good' else
-             YELLOW if self.speed_status=='too_slow' else RED),
+            ('Speed', self.effective_speed_msg, GREEN if self.effective_speed_status=='good' else
+             YELLOW if self.effective_speed_status=='too_slow' else RED),
         ]
 
 
@@ -700,13 +771,14 @@ class ShoulderPressTracker(ExerciseBase):
             r_ang = angle3(r_sh, r_el, r_wr)
             self.angle = (l_ang + r_ang) / 2
 
-            if self.phase == 'down' and self.angle > 155:
+            self.update_live_speed()
+
+            if self.phase == 'down' and self.angle > 160 and self.can_change_phase():
                 self.phase = 'up'; self.phase_start = time.time()
-            elif self.phase == 'up' and self.angle < 90:
+            elif self.phase == 'up' and self.angle < 85 and self.can_change_phase():
                 if self.can_count_rep(0.8):
                     elapsed = time.time() - self.phase_start
                     self.rep_times.append(elapsed)
-                    # Shoulder press: 1.2s - 4.8s
                     s, m = classify_speed(elapsed, 1.2, 4.8)
                     self.speed_status = s; self.speed_msg = m
                     self.reps += 1
@@ -745,8 +817,8 @@ class ShoulderPressTracker(ExerciseBase):
         return [
             ('Phase', self.phase.upper(), BLUE),
             ('Elbow Angle', f'{self.angle:.0f}°', self.feedback_col),
-            ('Speed', self.speed_msg or '—', GREEN if self.speed_status=='good' else
-             YELLOW if self.speed_status=='too_slow' else RED),
+            ('Speed', self.effective_speed_msg, GREEN if self.effective_speed_status=='good' else
+             YELLOW if self.effective_speed_status=='too_slow' else RED),
         ]
 
 
@@ -782,13 +854,14 @@ class LateralRaiseTracker(ExerciseBase):
             r_up = r_wr[1] < r_sh[1] + 20
             arms_up = l_up and r_up
 
-            if self.phase == 'down' and arms_up:
+            self.update_live_speed()
+
+            if self.phase == 'down' and arms_up and self.can_change_phase():
                 self.phase = 'up'; self.phase_start = time.time()
-            elif self.phase == 'up' and not arms_up:
+            elif self.phase == 'up' and not arms_up and self.can_change_phase():
                 if self.can_count_rep(0.8):
                     elapsed = time.time() - self.phase_start
                     self.rep_times.append(elapsed)
-                    # Lateral raises: 1.5s - 5.5s
                     s, m = classify_speed(elapsed, 1.5, 5.5)
                     self.speed_status = s; self.speed_msg = m
                     self.reps += 1
@@ -828,8 +901,8 @@ class LateralRaiseTracker(ExerciseBase):
         return [
             ('Phase', self.phase.upper(), BLUE),
             ('Raise Angle', f'{self.angle:.0f}°', self.feedback_col),
-            ('Speed', self.speed_msg or '—', GREEN if self.speed_status=='good' else
-             YELLOW if self.speed_status=='too_slow' else RED),
+            ('Speed', self.effective_speed_msg, GREEN if self.effective_speed_status=='good' else
+             YELLOW if self.effective_speed_status=='too_slow' else RED),
         ]
 
 
@@ -1460,12 +1533,18 @@ class ExerciseApp:
         self._frame_lock   = threading.Lock()
         self._latest_frame = None
         self._capture_thread = None
-        # Pre-load model at startup so Start Session is instant
-        try:
-            self._load_model()
-            print('[OK] MediaPipe model pre-loaded at startup')
-        except Exception as e:
-            print(f'[WARN] Model pre-load failed: {e}')
+        self._model_loading = False
+        # Pre-load model in background thread so server starts instantly (no freeze)
+        def _bg_load():
+            try:
+                self._load_model()
+                print('[OK] MediaPipe model pre-loaded in background')
+            except Exception as e:
+                print(f'[WARN] Background model pre-load failed: {e}')
+            finally:
+                self._model_loading = False
+        self._model_loading = True
+        threading.Thread(target=_bg_load, daemon=True).start()
 
         self.accent_map = {
             'squats':          (60, 160, 255),
@@ -1505,35 +1584,32 @@ class ExerciseApp:
         print('[OK] PoseLandmarker (heavy) loaded')
 
     def start_camera(self):
-        # Explicitly release any existing handle
-        if self.cap:
-            try: self.cap.release()
+        # Signal any running thread to stop
+        with self._lock:
+            self._running = False
+
+        # Give the old thread a moment to notice and exit (non-blocking)
+        old_thread = self._capture_thread
+        if old_thread and old_thread.is_alive():
+            old_thread.join(timeout=1.5)  # Short wait, then proceed regardless
+        self._capture_thread = None
+
+        # Release any leftover camera handle
+        cap = self.cap
+        self.cap = None
+        if cap:
+            try: cap.release()
             except: pass
-            self.cap = None
 
-        # Use DirectShow to avoid 6-second Windows MSMF hang
-        self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-        if not self.cap or not self.cap.isOpened():
-            self.cap = cv2.VideoCapture(0)
+        # Clear the latest frame so UI shows "starting" instead of stale image
+        with self._frame_lock:
+            self._latest_frame = None
 
-        if not self.cap or not self.cap.isOpened():
-            return False, 'Cannot open webcam'
-
-        # BUFFERSIZE=1: always get freshest frame
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        self.cap.set(cv2.CAP_PROP_FPS, 30)
-
-        if not self.landmarker:
-            try: self._load_model()
-            except Exception as e: return False, str(e)
-
+        # Flip running back on and launch fresh thread
         with self._lock:
             self.state = 'cam_ready'
             self._running = True
 
-        # Start background capture+AI thread
         self._capture_thread = threading.Thread(target=self._capture_loop, daemon=True)
         self._capture_thread.start()
         return True, 'ok'
@@ -1542,7 +1618,8 @@ class ExerciseApp:
         with self._lock:
             self.state = 'idle'
             self._running = False
-        if self.cap: self.cap.release(); self.cap = None
+        # Camera is released by the capture thread itself when it sees _running=False
+        # We do NOT join here to avoid blocking the HTTP response
 
     def start_exercise(self, exercise):
         with self._lock:
@@ -1569,13 +1646,19 @@ class ExerciseApp:
             ex = self.exercise
             t  = self.tracker
         is_yoga = getattr(t, 'is_yoga', False) if t else False
+        if t and not is_yoga:
+            eff_speed_msg    = t.effective_speed_msg
+            eff_speed_status = t.effective_speed_status
+        else:
+            eff_speed_msg    = t.speed_msg if t else ''
+            eff_speed_status = t.speed_status if t else 'good'
         stats = {
             'reps':         t.reps          if t else 0,
             'form_score':   t.form_score    if t else 100,
             'feedback':     t.feedback      if t else '',
             'angle':        round(t.angle, 1) if t else 0,
-            'speed_msg':    t.speed_msg     if t else '',
-            'speed_status': t.speed_status  if t else 'good',
+            'speed_msg':    eff_speed_msg,
+            'speed_status': eff_speed_status,
             'avg_rep_time': round(t.avg_rep_time(), 2) if t else 0,
             'is_yoga':      is_yoga,
         }
@@ -1586,74 +1669,161 @@ class ExerciseApp:
         return {'state': s, 'exercise': ex, 'stats': stats}
 
     def _capture_loop(self):
-        """Background thread: reads frames, runs AI, stores annotated result."""
+        """Background thread: opens camera, waits for model, reads/annotates frames."""
+        print('[OK] Capture loop started — opening camera in background...')
         frame_count = 0
-        ts_ms = 0
-        while True:
+        start_time = time.time()
+
+        # ── Step 1: Open camera (this is the blocking part, now safely in background) ──
+        try:
+            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)  # DirectShow avoids MSMF 6s hang
+            if not cap or not cap.isOpened():
+                cap = cv2.VideoCapture(0)
+            if not cap or not cap.isOpened():
+                print('[ERROR] Cannot open webcam')
+                with self._lock:
+                    self.state = 'idle'
+                    self._running = False
+                return
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            cap.set(cv2.CAP_PROP_FPS, 30)
+            self.cap = cap
+            print('[OK] Camera opened')
+        except Exception as e:
+            print(f'[ERROR] Camera init failed: {e}')
             with self._lock:
-                running = self._running
-                cur_state = self.state
-                cur_ex = self.exercise
-                tracker = self.tracker
-            if not running:
-                break
+                self.state = 'idle'
+                self._running = False
+            return
 
-            if not self.cap or not self.cap.isOpened():
-                time.sleep(0.05)
-                continue
+        # ── Step 2: Wait for background model load (max 15s) ──
+        if self._model_loading:
+            print('[INFO] Waiting for MediaPipe model to finish loading...')
+            for _ in range(150):
+                with self._lock:
+                    still_running = self._running
+                if not still_running:
+                    print('[INFO] Stop requested during model wait — exiting')
+                    cap.release()
+                    self.cap = None
+                    return
+                if self.landmarker:
+                    break
+                time.sleep(0.1)
+        if not self.landmarker:
+            try:
+                self._load_model()
+            except Exception as e:
+                print(f'[WARN] Model load failed in thread: {e}')
 
-            ret, raw = self.cap.read()
-            if not ret:
-                time.sleep(0.05)
-                continue
+        print('[OK] Capture loop ready')
 
-            frame_count += 1
-            frame = cv2.flip(raw, 1)
-            frame = zoom_out(frame, ZOOM_SCALE)
-            h, w = frame.shape[:2]
-            ts_ms += int(FRAME_INTERVAL * 1000)
+        while True:
+            try:
+                with self._lock:
+                    running = self._running
+                    cur_state = self.state
+                    cur_ex = self.exercise
+                    tracker = self.tracker
+                if not running:
+                    break
 
-            lms = None
-            # Run AI every 2nd frame for performance
-            if self.landmarker and (frame_count % 2 == 0):
-                try:
-                    # Downsample to 320x240 for AI — 4x faster than 640x480
-                    small = cv2.resize(frame, (320, 240))
-                    rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
-                    mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-                    r = self.landmarker.detect_for_video(mp_img, int(ts_ms))
-                    if r.pose_landmarks:
-                        lms = r.pose_landmarks[0]
-                        self._last_lms = lms
-                except Exception:
-                    pass
-            else:
-                lms = getattr(self, '_last_lms', None)
+                if not self.cap or not self.cap.isOpened():
+                    time.sleep(0.1)
+                    continue
 
-            if lms:
-                accent = self.accent_map.get(cur_ex, BLUE)
-                draw_skeleton(frame, lms, accent)
-                if cur_state == 'tracking' and tracker:
-                    angle_pts = tracker.process(lms, w, h)
-                    for (jpt, ang, col) in (angle_pts or []):
-                        draw_angle_arc(frame, jpt, ang, col)
-                    draw_rep_counter(frame, tracker, cur_ex)
-                    draw_form_bar(frame, tracker.form_score, tracker.feedback, tracker.feedback_col)
-                    draw_hud_info(frame, tracker.hud_info())
-                    is_yoga = getattr(tracker, 'is_yoga', False)
-                    if is_yoga:
-                        draw_yoga_timer_overlay(frame, tracker)
-                    else:
-                        draw_speed_indicator(frame, tracker.speed_status, tracker.speed_msg)
+                ret, raw = self.cap.read()
+                if not ret:
+                    time.sleep(0.01)
+                    continue
+
+                frame_count += 1
+                frame = cv2.flip(raw, 1)
+                frame = zoom_out(frame, ZOOM_SCALE)
+                h, w = frame.shape[:2]
+                
+                # Use real monotonic timestamp for MediaPipe
+                current_ts_ms = int((time.time() - start_time) * 1000)
+
+                lms = None
+                fresh_detection = False
+                # Run AI every 2nd frame to prevent CPU saturation and "freezing"
+                if self.landmarker and (frame_count % 2 == 0):
+                    try:
+                        # Process on half-scale for performance
+                        small = cv2.resize(frame, (320, 240))
+                        rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
+                        mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+                        
+                        r = self.landmarker.detect_for_video(mp_img, current_ts_ms)
+                        
+                        if r.pose_landmarks:
+                            lms = r.pose_landmarks[0]
+                            self._last_lms = lms
+                            fresh_detection = True
+                    except Exception as ai_err:
+                        # Log but don't kill thread
+                        if frame_count % 100 == 0:
+                            print(f'[AI Error] {ai_err}')
+                        pass
+
+                # Fallback to last known landmarks for smooth UI rendering
+                if not fresh_detection:
+                    lms = getattr(self, '_last_lms', None)
+
+                if lms:
+                    accent = self.accent_map.get(cur_ex, BLUE)
+                    draw_skeleton(frame, lms, accent)
+                    
+                    if cur_state == 'tracking' and tracker:
+                        # Only update logic on fresh AI detection
+                        if fresh_detection:
+                            angle_pts = tracker.process(lms, w, h)
+                            self._last_angle_pts = angle_pts
+                        else:
+                            angle_pts = getattr(self, '_last_angle_pts', [])
+
+                        for (jpt, ang, col) in (angle_pts or []):
+                            draw_angle_arc(frame, jpt, ang, col)
+                            
+                        draw_rep_counter(frame, tracker, cur_ex)
+                        draw_form_bar(frame, tracker.form_score, tracker.feedback, tracker.feedback_col)
+                        draw_hud_info(frame, tracker.hud_info())
+                        
+                        is_yoga = getattr(tracker, 'is_yoga', False)
+                        if is_yoga:
+                            draw_yoga_timer_overlay(frame, tracker)
+                        else:
+                            eff_spd = tracker.effective_speed_status if hasattr(tracker, 'effective_speed_status') else tracker.speed_status
+                            eff_msg = tracker.effective_speed_msg if hasattr(tracker, 'effective_speed_msg') else tracker.speed_msg
+                            draw_speed_indicator(frame, eff_spd, eff_msg)
+                    elif cur_state == 'cam_ready':
+                        draw_idle_overlay(frame, cur_ex)
                 elif cur_state == 'cam_ready':
                     draw_idle_overlay(frame, cur_ex)
-            elif cur_state == 'cam_ready':
-                draw_idle_overlay(frame, cur_ex)
 
-            # Store annotated frame for streaming
-            _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
-            with self._frame_lock:
-                self._latest_frame = buf.tobytes()
+                # Store annotated frame for streaming
+                _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 45]) # Lower quality for faster stream
+                with self._frame_lock:
+                    self._latest_frame = buf.tobytes()
+                
+                # Heartbeat
+                if frame_count % 300 == 0:
+                    print(f'[Heartbeat] Tracker loop alive. Frame: {frame_count}')
+
+            except Exception as e:
+                print(f'[CRITICAL] Capture loop error: {e}')
+                time.sleep(0.5)  # Prevent tight error loop
+
+        # Thread exiting — release camera cleanly
+        cap = self.cap
+        self.cap = None
+        if cap:
+            try: cap.release()
+            except: pass
+        print('[OK] Capture loop exited, camera released')
 
     def gen_frames(self):
         """Fast stream: just grabs latest pre-annotated frame."""
@@ -1705,8 +1875,25 @@ def start_exercise():
 
 @app.route('/stop_exercise', methods=['POST'])
 def stop_exercise():
-    ex_app.stop_exercise()
-    return jsonify({'ok': True})
+    try:
+        data = ex_app.state_dict()
+        reps = data['stats'].get('reps', 0) if data and data.get('stats') else 0
+        if reps > 0:
+            duration = 0
+            if ex_app.tracker and hasattr(ex_app.tracker, 'session_start'):
+                duration = round(time.time() - ex_app.tracker.session_start, 1)
+            db.save_workout({
+                'exercise': data['exercise'],
+                'reps': reps,
+                'score': data['stats'].get('form_score', 100),  # correct key
+                'duration': duration
+            })
+        ex_app.stop_exercise()
+        return jsonify({'ok': True})
+    except Exception as e:
+        print(f'[ERROR] stop_exercise: {e}')
+        ex_app.stop_exercise()  # Always stop even on error
+        return jsonify({'ok': True})
 
 @app.route('/reset_exercise', methods=['POST'])
 def reset_exercise():

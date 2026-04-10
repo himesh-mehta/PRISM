@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Filter, ArrowRight, X, Activity, User, Save, BellRing } from "lucide-react";
+import { Search, Plus, Filter, ArrowRight, X, Activity, User, Save, BellRing, UserX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
-// Mock Exercise Data
+// Exercise library (static - these are the available physiotherapy exercises)
 const exerciseLibrary = [
   { id: "1", title: "Wall Angels", category: "Posture", difficulty: "Beginner", target: "Upper Back", image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=2000&auto=format&fit=crop" },
   { id: "2", title: "Chin Tucks", category: "Neck", difficulty: "Beginner", target: "Cervical Spine", image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=2000&auto=format&fit=crop" },
@@ -16,15 +17,27 @@ const exerciseLibrary = [
   { id: "6", title: "Plank Variations", category: "Core", difficulty: "Advanced", target: "Core/Shoulders", image: "https://images.unsplash.com/photo-1566241440091-ec10de8db2e1?q=80&w=2000&auto=format&fit=crop" },
 ];
 
-const mockPatients = [
-  "Sarah Jenkins", "Marcus Reed", "Emily Chen", "David Thompson"
-];
-
 const PrescriptionBuilder = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPatient, setSelectedPatient] = useState("");
   const [prescriptionStack, setPrescriptionStack] = useState<any[]>([]);
+  const [realPatients, setRealPatients] = useState<string[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Fetch real patients from DB
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        const doctorId = user?.user_id; // Using user_id for doctor_patients mapping
+        if (!doctorId) return;
+        const r = await fetch(`/api/doctor-patients?doctorId=${doctorId}`);
+        const d = await r.json();
+        if (d.success) setRealPatients((d.patients || []).map((p: any) => p.name).filter(Boolean));
+      } catch (e) { /* silently fail */ }
+    };
+    fetchPatients();
+  }, [user]);
 
   const filteredExercises = exerciseLibrary.filter(ex =>
     ex.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -97,19 +110,26 @@ const PrescriptionBuilder = () => {
                   <Input placeholder="Search patients..." className="pl-12 bg-secondary/50 border-none h-12 rounded-xl focus-visible:ring-primary/30" />
                 </div>
                 <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                  {mockPatients.map((patient) => (
-                    <button
-                      key={patient}
-                      onClick={() => setSelectedPatient(patient)}
-                      className={`w-full text-left px-5 py-4 rounded-2xl transition-all border-2 ${selectedPatient === patient
-                        ? 'border-primary bg-primary/10 text-foreground'
-                        : 'border-transparent hover:bg-secondary/50 text-muted-foreground'
-                        }`}
-                    >
-                      <div className="font-bold text-base">{patient}</div>
-                      <div className="text-xs mt-1 opacity-70 font-medium">Requires new protocol</div>
-                    </button>
-                  ))}
+                  {realPatients.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <UserX className="w-10 h-10 text-muted-foreground/30 mb-2" />
+                      <p className="text-sm text-muted-foreground font-medium">No patients assigned yet</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">Add patients from the dashboard first</p>
+                    </div>
+                  ) : (
+                    realPatients.map((patient) => (
+                      <button
+                        key={patient}
+                        onClick={() => setSelectedPatient(patient)}
+                        className={`w-full text-left px-5 py-4 rounded-2xl transition-all border-2 ${selectedPatient === patient
+                          ? 'border-primary bg-primary/10 text-foreground'
+                          : 'border-transparent hover:bg-secondary/50 text-muted-foreground'
+                          }`}
+                      >
+                        <div className="font-bold text-base">{patient}</div>
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
               <DialogFooter>

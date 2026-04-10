@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Save, User, Bell, Shield, Palette, Info, CheckCircle2, Activity, Loader2 } from "lucide-react";
+import { Save, User, Bell, Shield, Palette, Info, CheckCircle2, Activity, Copy, QrCode } from "lucide-react";
 
 const SettingsPage = () => {
   const { user, login } = useAuth();
@@ -16,6 +16,27 @@ const SettingsPage = () => {
     gender: user?.gender || "male",
   });
   const [saved, setSaved] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
+
+  const uniquePatientId = (user as any)?.user_id || "Not available — please log in again";
+
+  const copyId = async () => {
+    try {
+      await navigator.clipboard.writeText(uniquePatientId);
+      setIdCopied(true);
+      setTimeout(() => setIdCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers
+      const el = document.createElement('textarea');
+      el.value = uniquePatientId;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setIdCopied(true);
+      setTimeout(() => setIdCopied(false), 2000);
+    }
+  };
 
   const handleSave = () => {
     login({
@@ -76,6 +97,34 @@ const SettingsPage = () => {
           >
             <h3 className="text-2xl font-display font-bold text-foreground mb-8">Personal Information</h3>
             <div className="space-y-8">
+              {/* Unique Patient ID — only for patients */}
+              {user?.role === "patient" && (
+                <div className="bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent border border-blue-500/20 rounded-2xl p-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/15 flex items-center justify-center">
+                      <QrCode className="w-5 h-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-foreground uppercase tracking-widest">Your Unique Patient ID</p>
+                      <p className="text-xs text-muted-foreground">Share with your doctor to be added to their patient list</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 mt-4">
+                    <code className="flex-1 bg-secondary/50 border border-border/50 rounded-xl px-4 py-3 text-xs font-mono text-foreground break-all select-all">
+                      {uniquePatientId}
+                    </code>
+                    <Button
+                      onClick={copyId}
+                      size="sm"
+                      className={`shrink-0 h-11 px-4 rounded-xl font-bold transition-all ${idCopied ? 'bg-green-500 text-white' : 'bg-blue-500/15 text-blue-500 hover:bg-blue-500 hover:text-white border border-blue-500/20'}`}
+                    >
+                      {idCopied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      <span className="ml-2">{idCopied ? 'Copied!' : 'Copy'}</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Profile Image Column */}
               <div className="flex items-center gap-6 pb-8 border-b border-border/30">
                 <div className="w-20 h-20 rounded-2xl bg-accent-gradient flex items-center justify-center text-3xl font-display font-bold text-white shadow-glow">
