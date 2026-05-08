@@ -88,16 +88,25 @@ app.post("/api/chats", async (req, res) => {
         const targetLanguage = langMap[language] || language || "English";
         let aiReply = "AI not configured.";
         if (groq) {
-            const resp = await groq.chat.completions.create({
-                model: "llama-3.3-70b-versatile",
-                max_tokens: 1024,
-                messages: [
-                    { role: "system", content: `You are Prism AI, a professional physiotherapy assistant for Prism Health Hub.\n\n🚨 CRITICAL: Respond 100% in ${targetLanguage} native script.\n\nUse headers (##, ###) with emojis, bold key actions, natural emojis. Always add a disclaimer for severe pain.` },
-                    ...history.map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text })),
-                    { role: "user", content: text }
-                ],
-            });
-            aiReply = resp.choices[0]?.message?.content ?? "Sorry, no response.";
+            console.log("🤖 [AI] Sending request to Groq for language:", targetLanguage);
+            try {
+                const resp = await groq.chat.completions.create({
+                    model: "llama-3.1-70b-versatile",
+                    max_tokens: 1024,
+                    messages: [
+                        { role: "system", content: `You are Prism AI, a professional physiotherapy assistant for Prism Health Hub.\n\n🚨 CRITICAL: Respond 100% in ${targetLanguage} native script.\n\nUse headers (##, ###) with emojis, bold key actions, natural emojis. Always add a disclaimer for severe pain.` },
+                        ...history.map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text })),
+                        { role: "user", content: text }
+                    ],
+                });
+                aiReply = resp.choices[0]?.message?.content ?? "Sorry, no response.";
+                console.log("✅ [AI] Successfully got reply");
+            } catch (groqErr) {
+                console.error("❌ [AI] Groq API Error:", groqErr.message);
+                aiReply = "I'm having trouble connecting to my brain right now. Please try again in a moment.";
+            }
+        } else {
+            console.warn("⚠️ [AI] Groq client not initialized (check GROQ_API_KEY)");
         }
         res.json({ success: true, aiReply });
     } catch (err) {
