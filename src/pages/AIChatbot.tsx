@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import ExerciseModelViewer from "@/components/ExerciseModelViewer";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiUrl } from "@/lib/api";
 
 
 declare global {
@@ -177,7 +178,7 @@ const AIChatbot = () => {
     setAttachments([]);
     setIsLoading(true);
     try {
-      const response = await fetch("/api/chats", {
+      const response = await fetch(apiUrl("/api/chats"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -218,7 +219,7 @@ const AIChatbot = () => {
 
       // 💾 Save to Neon DB (fire-and-forget, don't block UI)
       if (user?.user_id) {
-        fetch("/api/chat-save", {
+        fetch(apiUrl("/api/chat-save"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

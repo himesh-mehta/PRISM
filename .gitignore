@@ -1,45 +1,75 @@
-# Logs
-logs
+# ==========================================
+#  PRISM — .gitignore
+# ==========================================
+
+# ── Node.js ───────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+.npm/
+
+# ── Build & Cache ─────────────────────────
+.vite/
+.eslintcache
+coverage/
+
+# ── Logs ──────────────────────────────────
+logs/
 *.log
+*.log.*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# ── Python ────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# ── Environment & Secrets ─────────────────
+.env
+.env.local
+.env.*.local
 *.local
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# ── Runtime Data ──────────────────────────
+posture_log.txt
+posture_debug.log
+server_debug.log
+server_log.txt
+*.txt.bak
+
+# ── AI Model Files (large binary, download separately) ──
+# Uncomment below if you want to exclude the model:
+# services/pose_landmarker_heavy.task
+
+# ── JSON artifacts ────────────────────────
+serviceAccountKey.json
+schema_output.json
+schema_out.json
+counts_output.json
+
+# ── OS artifacts ──────────────────────────
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# Env files
-.env
-.env.local
-.env.*.local
-
-# Testing
-coverage
-
-# Cache
-.eslintcache
-
-# JSON Files to ignore
-serviceAccountKey.json
-schema_output.json
-schema_out.json
-counts_output.json
-*.log
-posture_debug.log
-server_debug.log
-server_log.txt
+# ── IDE ───────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.code-workspace

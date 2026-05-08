@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { apiUrl } from "@/lib/api";
 
 export interface UserProfile {
   user_id?: string;
@@ -21,7 +22,7 @@ export interface UserProfile {
 
 interface AuthContextType {
   user: UserProfile | null;
-  login: (profile: UserProfile) => void;
+  login: (profile: UserProfile, isSignup?: boolean) => Promise<void>;
   signup: (profile: UserProfile) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -30,8 +31,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  login: () => { },
-  signup: () => { },
+  login: async () => { },
+  signup: async () => { },
   logout: () => { },
   isAuthenticated: false,
   loading: true,
@@ -85,7 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (isSignup) {
       try {
         console.log("📤 Sending signup to server...");
-        const response = await fetch("/api/signup", {
+        const response = await fetch(apiUrl("/api/signup"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(fullProfile),

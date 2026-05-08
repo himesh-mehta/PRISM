@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
+import { apiUrl } from "@/lib/api";
 
 const DoctorDashboard = () => {
   const { user } = useAuth();
@@ -39,7 +40,7 @@ const DoctorDashboard = () => {
   const fetchPatients = async () => {
     try {
       if (!doctorId) { setLoadingPatients(false); return; }
-      const r = await fetch(`/api/doctor-patients?doctorId=${doctorId}`);
+      const r = await fetch(apiUrl(`/api/doctor-patients?doctorId=${doctorId}`));
       const d = await r.json();
       if (d.success) setPatients(d.patients || []);
     } catch (e) {
@@ -78,7 +79,7 @@ const DoctorDashboard = () => {
     setLookedUpPatient(null);
     setLookupError("");
     try {
-      const r = await fetch(`/api/lookup-patient?userId=${encodeURIComponent(trimmed)}`);
+      const r = await fetch(apiUrl(`/api/lookup-patient?userId=${encodeURIComponent(trimmed)}`));
       const d = await r.json();
       if (d.success && d.patient) {
         setLookedUpPatient(d.patient);
@@ -105,7 +106,7 @@ const DoctorDashboard = () => {
 
     setAddingPatient(true);
     try {
-      const r = await fetch("/api/add-doctor-patient", {
+      const r = await fetch(apiUrl("/api/add-doctor-patient"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ doctorId, patientId: lookedUpPatient.user_id }),
@@ -133,11 +134,11 @@ const DoctorDashboard = () => {
     setLoadingHistory(true);
     try {
       // Fetch posture history
-      const pr = await fetch(`/api/posture-history?patientId=${patient.id}`);
+      const pr = await fetch(apiUrl(`/api/posture-history?patientId=${patient.id}`));
       const pd = await pr.json();
       
       // Fetch exercise history
-      const er = await fetch(`/api/exercise-history?userId=${patient.id}`);
+      const er = await fetch(apiUrl(`/api/exercise-history?userId=${patient.id}`));
       const ed = await er.json();
       
       setPatientHistory({

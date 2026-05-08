@@ -5,6 +5,7 @@ import { Camera, CameraOff, Play, Pause, RotateCcw, Timer, Award, Activity, Spar
 import { AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { apiUrl } from "@/lib/api";
 
 /* ── Exercise data ──────────────────────────────────────────────────────── */
 const EX_LABELS: Record<string, string> = {
@@ -252,7 +253,7 @@ export default function ExerciseTracker() {
     if (savedUser) {
       const u = JSON.parse(savedUser);
       if (u.user_id && repCount > 0) {
-        fetch("/api/exercise-report", {
+        fetch(apiUrl("/api/exercise-report"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

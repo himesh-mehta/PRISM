@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogIn, UserPlus, User, Mail, Ruler, Weight, Calendar, Users, Briefcase, Stethoscope } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 import {
     Dialog,
     DialogContent,
@@ -71,7 +72,7 @@ const LoginModal = ({ isOpen, onClose, initialTab = "login" }: LoginModalProps) 
         setError(null);
 
         try {
-            const response = await fetch("/api/login", {
+            const response = await fetch(apiUrl("/api/login"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email: loginForm.email, password: loginForm.password }),

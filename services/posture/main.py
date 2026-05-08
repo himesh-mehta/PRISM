@@ -20,7 +20,9 @@ app = Flask(__name__)
 # ═══════════════════════════════════════════════════════════════════════════
 #  CONFIG
 # ═══════════════════════════════════════════════════════════════════════════
-POSE_MODEL     = 'pose_landmarker_heavy.task'   # most accurate
+import os
+_DIR = os.path.dirname(os.path.abspath(__file__))
+POSE_MODEL     = os.path.join(os.path.dirname(_DIR), 'pose_landmarker_heavy.task')   # most accurate
 PREP_S         = 3
 CAP_S          = 5
 TARGET_FPS     = 24

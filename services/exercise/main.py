@@ -39,7 +39,7 @@ db = NeonDB()
 #  CONFIG
 # ═══════════════════════════════════════════════════════════════
 import os
-MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pose_landmarker_heavy.task')
+MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'pose_landmarker_heavy.task')
 TARGET_FPS     = 24
 FRAME_INTERVAL = 1.0 / TARGET_FPS
 ZOOM_SCALE     = 0.78

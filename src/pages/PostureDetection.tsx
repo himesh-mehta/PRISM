@@ -5,6 +5,7 @@ import { Camera, CameraOff, Play, AlertTriangle, CheckCircle2, Clock, BarChart2 
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import FuturisticVideo from "@/assets/Futuristic_Posture_Detection_Video.mp4";
+import { apiUrl } from "@/lib/api";
 
 const VIEW_INSTRUCTIONS: Record<string, string[]> = {
   FRONT: ['Stand FACING the camera', 'Arms relaxed at sides', 'Feet shoulder-width apart'],
@@ -40,7 +41,7 @@ const PostureDetection = () => {
         const u = JSON.parse(savedUser);
         if (!u.patient_id) return;
 
-        const res = await fetch(`/api/posture-history?patientId=${u.patient_id}`);
+        const res = await fetch(apiUrl(`/api/posture-history?patientId=${u.patient_id}`));
         const data = await res.json();
         if (data.success && data.sessions?.length > 0) {
           const dbRecords = data.sessions.map((s: any) => {
@@ -107,7 +108,7 @@ const PostureDetection = () => {
         if (savedUser) {
           const u = JSON.parse(savedUser);
           if (u.user_id || u.patient_id) {
-            fetch("/api/posture-report", {
+            fetch(apiUrl("/api/posture-report"), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
