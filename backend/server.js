@@ -13,7 +13,10 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, "../.env.local") });
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ['https://prism-mu-five.vercel.app', 'http://localhost:5173', 'http://localhost:8080'],
+  credentials: true
+}));
 app.use(express.json());
 
 if (!process.env.DATABASE_URL) console.error("❌ DATABASE_URL missing");
