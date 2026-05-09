@@ -1,0 +1,8 @@
+# PRISM — Python Dependencies (all services)
+# Run: pip install -r requirements.txt
+
+opencv-python>=4.8.0
+numpy>=1.24.0
+mediapipe>=0.10.0
+Flask>=3.0.0
+flask-cors>=4.0.0
